@@ -1,0 +1,40 @@
+\batchmode
+\documentclass{standalone}
+
+\usepackage{tlatex}
+\usepackage{color}
+\definecolor{boxshade}{gray}{.85}
+\setboolean{shading}{true}
+
+\usepackage{setspace}
+
+\begin{document}
+\makeatletter
+\chardef\%=`\%
+\fl{}
+\fl{}
+\fl{ {\VARIABLE} nextIndex}
+\fl{}
+\fl{}
+\fl{ {\VARIABLE} matchIndex}
+\fl{}
+\fl{ {\VARIABLE} replicationSet}
+\fl{}
+\fl{ {\VARIABLE} currentSubterm}
+\fl{}
+\fl{ {\VARIABLE} witnessSubterm}
+ \fl{ leaderVars \.{\defeq} {\langle}}\al{13}{3}{ nextIndex ,\, matchIndex ,\,
+ elections ,\,}
+\fl{ replicationSet ,\, currentSubterm ,\, witnessSubterm {\rangle}}
+\fl{}
+\fl{}
+\fl{}
+\fl{ {\VARIABLE} witnessReplicationSet}
+\fl{}
+\fl{ {\VARIABLE} witnessLastLogTerm}
+\fl{}
+\fl{ {\VARIABLE} witnessLastLogSubterm}
+\fl{ witnessVars \.{\defeq} {\langle}}\al{23}{3}{ witnessReplicationSet ,\,}
+\fl{ witnessLastLogTerm ,\, witnessLastLogSubterm {\rangle}}
+\fl{}
+\end{document}

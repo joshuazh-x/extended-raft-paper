@@ -1,0 +1,127 @@
+\documentclass{standalone}
+
+\usepackage{tlatex}
+\usepackage{color}
+\definecolor{boxshade}{gray}{.85}
+\setboolean{shading}{true}
+
+\usepackage{setspace}
+
+\begin{document}
+\onehalfspacing
+
+    \begin{tla}
+
+\* Witness receives an AppendEntriesToWitnessRequest from server j with
+\* m.mterm <= currentTerm[WitnessID]. 
+HandleAppendEntriesToWitnessRequest(j, m) ==
+    /\ m.mterm <= currentTerm[WitnessID]
+    /\ \/ \* reject request
+          /\ m.mterm < currentTerm[WitnessID]
+          /\ Reply([mtype           |-> AppendEntriesResponse,
+                    mterm           |-> currentTerm[WitnessID],
+                    msuccess        |-> FALSE,
+                    mmatchIndex     |-> 0,
+                    msource         |-> WitnessID,
+                    mdest           |-> j],
+                    m)
+          /\ UNCHANGED <<serverVars, logVars, witnessVars>>
+       \/ \* accept request, always no conflict.
+          /\ m.mterm = currentTerm[WitnessID]
+          /\ \/ m.mlastLogTerm > witnessLastLogTerm[WitnessID]
+             \/ /\ m.mlastLogTerm = witnessLastLogTerm[WitnessID]
+                /\ m.mlastLogSubterm > witnessLastLogSubterm[WitnessID]
+          /\ witnessReplicationSet' = 
+              [witnessReplicationSet EXCEPT![WitnessID] = m.mreplicationSet]
+          /\ witnessLastLogTerm' =
+              [witnessLastLogTerm EXCEPT![WitnessID] = m.mlastLogTerm]
+          /\ witnessLastLogSubterm' =
+              [witnessLastLogSubterm EXCEPT![WitnessID] = m.mlastLogSubterm]
+          \* log will not be modified in real implementation. It is only
+          \* used here for the proof.
+          /\ log' = [log EXCEPT![WitnessID] = m.mentries]
+          /\ Reply([mtype           |-> AppendEntriesResponse,
+                    mterm           |-> currentTerm[WitnessID],
+                    msuccess        |-> TRUE,
+                    mmatchIndex     |-> m.mindex,
+                    msource         |-> WitnessID,
+                    mdest           |-> j],
+                    m)
+          /\ UNCHANGED <<serverVars, log>>
+    /\ UNCHANGED <<candidateVars, leaderVars>>
+    \end{tla}
+\begin{tlatex}
+\@x{}%
+\@y{%
+  Witness receives an AppendEntriesToWitnessRequest from server j with
+}%
+\@xx{}%
+\@x{}%
+\@y{%
+  m.mterm <= currentTerm[WitnessID]. 
+}%
+\@xx{}%
+\@x{ HandleAppendEntriesToWitnessRequest ( j ,\, m ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} m . mterm \.{\leq} currentTerm [ WitnessID ]}%
+\@x{\@s{16.4} \.{\land} \.{\lor}}%
+\@y{%
+  reject request
+}%
+\@xx{}%
+\@x{\@s{38.62} \.{\land} m . mterm \.{<} currentTerm [ WitnessID ]}%
+ \@x{\@s{38.62} \.{\land} Reply ( [ mtype\@s{49.62} \.{\mapsto}
+ AppendEntriesResponse ,\,}%
+\@x{\@s{81.18} mterm\@s{46.67} \.{\mapsto} currentTerm [ WitnessID ] ,\,}%
+\@x{\@s{81.18} msuccess\@s{36.52} \.{\mapsto} {\FALSE} ,\,}%
+\@x{\@s{81.18} mmatchIndex\@s{16.40} \.{\mapsto} 0 ,\,}%
+\@x{\@s{81.18} msource\@s{40.04} \.{\mapsto} WitnessID ,\,}%
+\@x{\@s{81.18} mdest\@s{49.68} \.{\mapsto} j ] ,\,}%
+\@x{\@s{81.18} m )}%
+ \@x{\@s{38.62} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, logVars ,\,
+ witnessVars {\rangle}}%
+\@x{\@s{27.51} \.{\lor}}%
+\@y{%
+  accept request, always no conflict.
+}%
+\@xx{}%
+\@x{\@s{38.62} \.{\land} m . mterm \.{=} currentTerm [ WitnessID ]}%
+ \@x{\@s{38.62} \.{\land} \.{\lor} m . mlastLogTerm \.{>} witnessLastLogTerm [
+ WitnessID ]}%
+ \@x{\@s{49.73} \.{\lor} \.{\land} m . mlastLogTerm \.{=} witnessLastLogTerm [
+ WitnessID ]}%
+ \@x{\@s{60.84} \.{\land} m . mlastLogSubterm \.{>} witnessLastLogSubterm [
+ WitnessID ]}%
+\@x{\@s{38.62} \.{\land} witnessReplicationSet \.{'} \.{=}}%
+ \@x{\@s{53.83} [ witnessReplicationSet {\EXCEPT} {\bang} [ WitnessID ] \.{=}
+ m . mreplicationSet ]}%
+\@x{\@s{38.62} \.{\land} witnessLastLogTerm \.{'} \.{=}}%
+ \@x{\@s{53.83} [ witnessLastLogTerm {\EXCEPT} {\bang} [ WitnessID ] \.{=} m .
+ mlastLogTerm ]}%
+\@x{\@s{38.62} \.{\land} witnessLastLogSubterm \.{'} \.{=}}%
+ \@x{\@s{53.83} [ witnessLastLogSubterm {\EXCEPT} {\bang} [ WitnessID ] \.{=}
+ m . mlastLogSubterm ]}%
+\@x{\@s{38.62}}%
+\@y{%
+  log will not be modified in real implementation. It is only
+}%
+\@xx{}%
+\@x{\@s{38.62}}%
+\@y{%
+  used here for the proof.
+}%
+\@xx{}%
+ \@x{\@s{38.62} \.{\land} log \.{'} \.{=} [ log {\EXCEPT} {\bang} [ WitnessID
+ ] \.{=} m . mentries ]}%
+ \@x{\@s{38.62} \.{\land} Reply ( [ mtype\@s{49.62} \.{\mapsto}
+ AppendEntriesResponse ,\,}%
+\@x{\@s{81.18} mterm\@s{46.67} \.{\mapsto} currentTerm [ WitnessID ] ,\,}%
+\@x{\@s{81.18} msuccess\@s{36.52} \.{\mapsto} {\TRUE} ,\,}%
+\@x{\@s{81.18} mmatchIndex\@s{16.40} \.{\mapsto} m . mindex ,\,}%
+\@x{\@s{81.18} msource\@s{40.04} \.{\mapsto} WitnessID ,\,}%
+\@x{\@s{81.18} mdest\@s{49.68} \.{\mapsto} j ] ,\,}%
+\@x{\@s{81.18} m )}%
+\@x{\@s{38.62} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, log {\rangle}}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} candidateVars ,\, leaderVars
+ {\rangle}}%
+\end{tlatex}
+\end{document}

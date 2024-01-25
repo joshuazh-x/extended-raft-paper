@@ -1,0 +1,115 @@
+\documentclass{standalone}
+
+\usepackage{tlatex}
+\usepackage{color}
+\definecolor{boxshade}{gray}{.85}
+\setboolean{shading}{true}
+
+\usepackage{setspace}
+
+\begin{document}
+\onehalfspacing
+
+    \begin{tla}
+
+\* The following variables are used only on leaders:
+\* The next entry to send to each follower.
+VARIABLE nextIndex
+\* The latest entry that each follower has acknowledged is the same as the
+\* leader's. This is used to calculate commitIndex on the leader.
+VARIABLE matchIndex
+\* Leader's replication set
+VARIABLE replicationSet
+\* Leader's subterm number
+VARIABLE currentSubterm
+\* The latest subterm that this leader has written to the witness
+VARIABLE witnessSubterm
+leaderVars == <<nextIndex, matchIndex, elections, 
+                replicationSet, currentSubterm, witnessSubterm>>
+
+\* The following variables are persisted only on witness:
+\* The latest replication set sent from leader
+VARIABLE witnessReplicationSet
+\* The latest term of replicated log entry
+VARIABLE witnessLastLogTerm
+\* The latest subterm of replicated log entry
+VARIABLE witnessLastLogSubterm
+witnessVars == <<witnessReplicationSet, 
+                 witnessLastLogTerm, witnessLastLogSubterm>>
+
+    \end{tla}
+\begin{tlatex}
+\@x{}%
+\@y{%
+  The following variables are used only on leaders:
+}%
+\@xx{}%
+\@x{}%
+\@y{%
+  The next entry to send to each follower.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} nextIndex}%
+\@x{}%
+\@y{%
+  The latest entry that each follower has acknowledged is the same as the
+}%
+\@xx{}%
+\@x{}%
+\@y{%
+  leader's. This is used to calculate commitIndex on the leader.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} matchIndex}%
+\@x{}%
+\@y{%
+  Leader's replication set
+}%
+\@xx{}%
+\@x{ {\VARIABLE} replicationSet}%
+\@x{}%
+\@y{%
+  Leader's subterm number
+}%
+\@xx{}%
+\@x{ {\VARIABLE} currentSubterm}%
+\@x{}%
+\@y{%
+  The latest subterm that this leader has written to the witness
+}%
+\@xx{}%
+\@x{ {\VARIABLE} witnessSubterm}%
+ \@x{ leaderVars \.{\defeq} {\langle} nextIndex ,\, matchIndex ,\, elections
+ ,\,}%
+ \@x{\@s{69.36} replicationSet ,\, currentSubterm ,\, witnessSubterm
+ {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{%
+  The following variables are persisted only on witness:
+}%
+\@xx{}%
+\@x{}%
+\@y{%
+  The latest replication set sent from leader
+}%
+\@xx{}%
+\@x{ {\VARIABLE} witnessReplicationSet}%
+\@x{}%
+\@y{%
+  The latest term of replicated log entry
+}%
+\@xx{}%
+\@x{ {\VARIABLE} witnessLastLogTerm}%
+\@x{}%
+\@y{%
+  The latest subterm of replicated log entry
+}%
+\@xx{}%
+\@x{ {\VARIABLE} witnessLastLogSubterm}%
+\@x{ witnessVars \.{\defeq} {\langle} witnessReplicationSet ,\,}%
+\@x{\@s{75.11} witnessLastLogTerm ,\, witnessLastLogSubterm {\rangle}}%
+\@pvspace{8.0pt}%
+\end{tlatex}
+\end{document}
+

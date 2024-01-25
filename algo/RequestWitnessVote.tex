@@ -1,0 +1,56 @@
+\documentclass{standalone}
+
+\usepackage{tlatex}
+\usepackage{color}
+\definecolor{boxshade}{gray}{.85}
+\setboolean{shading}{true}
+
+\usepackage{setspace}
+
+\begin{document}
+
+    \begin{tla}
+
+\* Candidate i sends witness a RequestWitnessVote request.
+RequestWitnessVote(i) ==
+    /\ state[i] = Candidate
+    /\ WitnessID \notin votesResponded[i]
+    /\ (votesGranted[i] \cup {WitnessID}) \in Quorum
+    /\ Send([mtype              |-> RequestWitnessVoteRequest,
+             mterm              |-> currentTerm[i],
+             mlastLogTerm       |-> LastTerm(log[i]),
+             mlastLogSubterm    |-> LastSubterm(log[i]),
+             mvotesGranted      |-> votesGranted[i],
+             msource            |-> i,
+             mdest              |-> WitnessID])
+    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, logVars, 
+                   witnessVars>>
+
+    \end{tla}
+\begin{tlatex}
+\@x{}%
+\@y{%
+  Candidate i sends witness a RequestWitnessVote request.
+}%
+\@xx{}%
+\@x{ RequestWitnessVote ( i ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} state [ i ] \.{=} Candidate}%
+\@x{\@s{16.4} \.{\land} WitnessID \.{\notin} votesResponded [ i ]}%
+ \@x{\@s{16.4} \.{\land} ( votesGranted [ i ] \.{\cup} \{ WitnessID \} )
+ \.{\in} Quorum}%
+ \@x{\@s{16.4} \.{\land} Send ( [ mtype\@s{60.88} \.{\mapsto}
+ RequestWitnessVoteRequest ,\,}%
+\@x{\@s{56.16} mterm\@s{57.92} \.{\mapsto} currentTerm [ i ] ,\,}%
+\@x{\@s{56.16} mlastLogTerm\@s{24.82} \.{\mapsto} LastTerm ( log [ i ] ) ,\,}%
+ \@x{\@s{56.16} mlastLogSubterm\@s{12.29} \.{\mapsto} LastSubterm ( log [ i ]
+ ) ,\,}%
+\@x{\@s{56.16} mvotesGranted\@s{21.55} \.{\mapsto} votesGranted [ i ] ,\,}%
+\@x{\@s{56.16} msource\@s{51.29} \.{\mapsto} i ,\,}%
+\@x{\@s{56.16} mdest\@s{60.94} \.{\mapsto} WitnessID ] )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, candidateVars
+ ,\, leaderVars ,\, logVars ,\,}%
+\@x{\@s{89.98} witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\end{tlatex}
+\end{document}
+

@@ -1,0 +1,202 @@
+\section{Algorithm}\label{section:algorithm}
+In this section, we present the extended Raft algorithm, which is a variant of the Raft algorithm. It is designed for cluster with regular servers and at most one witness. The witness functions strictly as a follower server, implying that its role never transitions to candidate or leader. Furthermore, a witness only maintains a minimal set of metadata.
+
+Our newly proposed algorithm minimizes data traffic and reduces the frequency of witness visits while preserving all key properties of the Raft algorithm. This implies that the extended Raft algorithm ensures that each of the following properties is consistently upheld. 
+
+\begin{itemize}
+    \item Election Safety
+    \item Leader Append-only
+    \item Log Matching
+    \item Leader Completeness
+    \item State Machine Safety
+\end{itemize}
+
+In the rest of this document, unless otherwise specified, the term 'server' will denote either a regular server or a witness. Consequently, the server set, denoted as $Server$, that constitutes a cluster could either be $RegularServer \cup {witness}$ or simply $RegularServer$, where $RegularServer$ is the set of all regular servers.
+
+
+\subsection{Concepts and Definitions}\label{subsection:definition}
+
+\begin{definition}
+    A leader's \textbf{replication set} is a subset of the cluster server set, with its cardinality matching that of the regular server set.
+\end{definition}
+
+Let $ReplicationSets$ represent the set of all replication sets within a cluster. We have:
+\begin{displaymath}
+    ReplicationSets \defeq
+    \begin{cases}
+        \{Server\},                               & witness \notin Server \\
+        \{Server \setminus \{x\}: x \in Server\}, & witness \in Server
+    \end{cases}
+\end{displaymath}
+
+A leader maintains its replication set based on its view of the servers and modifies it under specific conditions. A leader may alter its replication set multiple times within a single term. To uniquely identify each replication set, we introduce the notion of a 'subterm' as detailed below.
+
+\begin{definition} 
+    A term is segmented into \textsc{subterms}, each begins with a replication set. 
+\end{definition}
+
+Subterms are sequentially numbered using consecutive integers, beginning from $0$ for each term. The leader retains its current subterm and increments it when the replication set is altered. Consequently, a leader's replication set remains static throughout its subterm.
+
+
+\subsection{States}\label{subsection:states}
+
+Figure \ref{fig:algo-state} illustrates the additional states introduced by the Extended Raft algorithm to accommodate the witness.
+\begin{figure}[htbp]
+    \begin{framed}
+        \input{algo/state}
+    \end{framed}
+    \caption{State}
+    \label{fig:algo-state}
+\end{figure}
+
+Each leader maintains three additional volatile variables: $replicationSet$, $currentSubterm$, and $witnessSubterm$. The $replicationSet$ represents the leader's current replication set, initialized to $RegularServer$, and is modified by $AdjustReplicationSet$ action. The $currentSubterm$ represents the latest subterm of the leader, initialized to $0$ and incremented upon a change in the leader's replication set. The $witnessSubterm$ denotes the latest subterm during which the leader replicated its log entry to the witness.
+
+In addition to $currentTerm$ and $votedFor$, the witness also includes $witnessReplicationSet$, $witnessLastLogTerm$, and $witnessLastLogSubterm$. These represent the most recent replication set, log entry term, and log entry subterm that the leader sent to the witness. We will further discuss this in Section \ref{subsection:log-replication}.
+
+Beyond the additional states in the leader and witness, each log entry is also associated with the leader's current subterm number when it is appended to the leader's log (Figure \ref{fig:client-request}). This subterm number is replicated and persisted alongside the log entry on all regular servers. We now denote a log entry as $\entry{index,term,subterm}$, which is uniquely identified by $index$ and $term$, and associated with $subterm$.
+
+\begin{figure}
+    \begin{framed}
+        \input{algo/ClientRequest}
+    \end{framed}
+    \caption{Client request}
+    \label{fig:client-request}
+\end{figure}
+
+\subsection{Log Replication} \label{subsection:log-replication}
+The leader replicates its log to regular servers in the exact same way as that in the Raft algorithm, and the regular servers handle the received log entries in the same way as well.
+
+However, for the witness, log replication is performed differently, as shown in Figure \ref{fig:algo-append-entries-to-witness}. In the Extended Raft algorithm, the leader sends an $AppendEntriesToWitnessRequest$ to the witness, which includes the current replication and metadata of the log entry that satisfies the following conditions:
+\begin{enumerate} 
+    \item\label{cond:in-subterm} The log entry's term and subterm are equal to $currentTerm$ and $currentSubterm$, respectively. 
+    \item The leader's current replication set includes the witness. 
+    \item The leader has received acknowledgments for the log entry from at least a subquorum (one server away from forming a quorum) in the leader's current replication set. 
+    \item\label{condition:first-in-subterm} The leader has not received any acknowledgment from the witness during the current subterm. 
+\end{enumerate}
+
+\begin{figure}[htbp]
+    \begin{framed}
+        \input{algo/AppendEntriesToWitness}
+    \end{framed}
+    
+    \caption{AppendEntriesToWitness}
+    \label{fig:append-entries-to-witness}
+\end{figure}
+
+The $AppendEntriesToWitness$ can be considered as a special implementation of the $AppendEntries$ action with batching of log prefix up to a specific log entry. This log entry belongs to the current subterm and has received subquorum acknowledgements from the current replication set. In addition to the message fields that also exist in $AppendEntriesRequest$, the dispatched message $AppendEntriesToWitnessReques$ also contains the current replication set and the metadata of the last batched entries.
+
+Upon receiving the request, the witness persists the replication set, as well as the term and subterm of the log entry, then responds to the leader with an $AppendEntriesResponse$ message (Figure \ref{fig:handle-append-entries-to-witness}). 
+
+\begin{figure}
+    \begin{framed}
+        \input{algo/HandleAppendEntriesToWitnessRequest}
+    \end{framed}
+    \caption{Handle AppendEntriesToWitness}
+    \label{fig:handle-append-entries-to-witness}
+\end{figure}
+
+Note that the $mlog$ and $mentries$ fields in the message are solely used for proof. They do not exist in the actual implementation, nor will the witness persist the full log prefix in its durable storage. The persistence of $m.mentries$ to $log$ in $HandleAppendEntriesToWitnessRequest$ is exclusively used for proof purposes.
+
+When the leader receives an acknowledgment from the witness, it also updates its $witnessSubterm$ to the current subterm if the acknowledged log entry is in the current subterm. Then, according to condition \ref{cond:first-in-subterm}, the leader no longer sends $AppendEntriesToWitnessRequest$ in the current subterm. Instead, the leader treats subsequent log entries as already acknowledged by the witness if they fulfill all conditions except condition \ref{cond:first-in-subterm}. This is referred to as \textbf{Shortcut Replication}, where the leader sends an $AppendEntriesResponse$ to itself on behalf of the witness.
+
+Note that the log entry in $AppendEntriesToWitness$ must be within the current term and subterm. So, when the leader advances its subterm (a consequence of replication set adjustment), a new empty log entry must be appended to the leader's log. This is to ensure the leader won't be impeded by condition \ref{cond:in-subterm} in committing log entries.
+
+Leader immediately commits a log entry during its term when the log entry is acknowledged by a quorum, in the same way as in Raft. The acknowledgment either comes from a regular server or the witness. Since the leader sends $AppendEntriesToWitnessRequest$ to the witness only after it has received subquorum acknowledgments from regular servers, any log entry acknowledged by the witness is immediately committed.
+
+\subsection{Replication Set Adjustment} \label{subsection:replication-set-adjustment}
+Leader maintains the replication set and modifies it whenever necessary. This process is referred to as \textbf{Replication Set Adjustment}. Figure \ref{fig:adjust-replicaitonset} illustrates a straightforward method to adjust the replication set. Although there could be multiple ways to adjust a replication set in practical implementations, such a simple method can be used in the algorithm to minimize the atomic regions without loss of generality.
+\begin{figure}
+    \begin{framed}
+        \input{algo/AdjustReplicationSet}
+    \end{framed}
+    \caption{Replicaiton set adjustment}
+    \label{fig:adjust-replicaitonset}
+\end{figure}
+
+To commit, the leader's replication set must contain at least a subquorum of healthy regular servers if it includes a witness. Therefore, in a practical implementation, replication set adjustment should be performed in a way such that the resulting replication set includes as many healthy regular servers as possible. To achieve this, leader can track the status of each peer regular server by monitoring their responses. If leader receives no response from a regular peer server over an $election timeout$, it assumes the regular server is unreachable and initiates a replication set adjustment. Let $Reachable$ and $Unreachable$ represent the set of reachable regular servers and unreachable regular servers from the leader's perspective. A practical replication set adjustment can be implemented as below:
+\begin{enumerate}
+    \item When a regular server becomes a leader, its replication set is initialized to all regular servers $RegularServer$ in the leader's configuration.
+    \item If all servers in $RegularServer$ are reachable from the leader, leader changes its replication set to $RegularServer$, i.e.,
+          \begin{displaymath}
+              \forall s \in RegularServer : s \in Reachable \implies ReplicationSet' = RegularServer
+          \end{displaymath}
+    \item Leader swaps one unreachable regular server inside its replication set with the reachable regular server or witness outside, i.e.,
+          \begin{displaymath}
+              \begin{aligned}
+                   & \exists x \in ReplicationSet, y \in Server \setminus ReplicationSet :
+                  \!\begin{aligned}[t]
+                         & \land x \in Unreachable   \\
+                         & \land
+                        \!\begin{aligned}[t]
+                             & \lor y \in Reachable \\
+                             & \lor y = witness
+                        \end{aligned} \\
+                    \end{aligned} \\
+                   & \qquad \implies ReplicationSet' = Server \setminus \{x\}
+              \end{aligned}
+          \end{displaymath}
+    \item Leader increments its $currentSubterm$ and appends a new empty log entry if its replication set changes.
+\end{enumerate}
+
+\subsection{Leader Election}\label{subsection:leader-election}
+When a regular server transitions into candidate, it requests votes from all peer servers including witness. The extended Raft algorithm adheres to the exact same rules as those in Raft when it comes to requesting and granting votes between a candidate and a regular server. However, the candidate does not request a vote from the witness until it has received subquorum votes from regular servers. Figure \ref{fig:request-witness-vote} describes the new $RequestWitnessVote$ action for a candidate to request vote from a witness.
+\begin{figure}
+    \begin{framed}
+        \input{algo/RequestWitnessVote}
+    \end{framed}
+    \caption{RequestWitnessVote}
+    \label{fig:request-witness-vote}
+\end{figure}
+
+Considering that the witness does not persist the full log prefix, the extended Raft algorithm employs a new set of rules for the witness in leader elections. Figure \ref{fig:handle-request-witness-vote} describes the new action for the witness to handle a vote request from a candidate. The $RequestWitnessVoteRequest$ message includes the $term$ and $subterm$ of the last log entry in the candidate, as well as the votes the candidate has already received in the current election.
+\begin{figure}
+    \begin{framed}
+        \input{algo/HandleRequestWitnessVoteRequest}
+    \end{framed}
+    \caption{HandleRequestVoteToWitness}
+    \label{fig:handle-request-witness-vote}
+\end{figure}
+The witness votes for a candidate if it has not casted vote in the current term and any of the following conditions is true:
+\begin{itemize}
+    \item Candidate's last log entry has larger term, i.e. $m.mlastLogTerm > witnessLastLogTerm$.
+    \item Candidate's last log entry has same term but larger subterm, i.e. $m.mlastLogTerm = witnessLastLogTerm \land m.lastLogSubterm > witnessLastLogSubterm$.
+    \item Candidate's last log entry has same term and subterm comparing to witness, and all subqorum votes it got are from regular servers in witness's replication set, i.e.
+          \begin{displaymath}
+              \begin{aligned}
+                   & m.mlastLogTerm = witnessLastLogTerm             \\
+                   & m.mlastLogSubterm = witnessLastLogSubterm       \\
+                   & m.mvotesGranted \subseteq witnessReplicationSet \\
+              \end{aligned}
+          \end{displaymath}
+\end{itemize}
+
+
+\section{Witness Implementation} \label{section:witness-implementation}
+With the extended Raft algorithm, the witness possesses the following properties that make it particularly suitable for implementation as a storage object:
+
+\begin{itemize} 
+    \item Witness does not have volatile variables, implying that all states within the witness are persisted in durable storage. 
+    \item Witness only persists a small amount of metadata. Neither user data nor the full log prefix metadata are stored in witness. This results in a trivial and predictable capacity requirement. 
+    \item Witness is rarely accessed. The shortcut replication ensures that leader only needs to write to witness when its replication set changes. Therefore, witness may only need to be accessed when faults change (e.g. a server shuts down or recovers) or a candidate requests its vote. In a relatively stable cluster, neither of these events occur frequently. 
+\end{itemize}
+
+The absence of volatile variables allows the synchronization of witness states to be distributed across all regular servers. For each log replication between leader and witness, the $HandleAppendEntriesToWitnessRequest$ action can be implemented in the leader as a single operation that loads states from the witness's durable storage, make new states according to $HandleAppendEntriesToWitnessRequest$, and writes back new states to the witness's durable storage. Similarly for voting between candidate and witness, the $HandleRequestWitnessVoteRequest$ action can be implemented in the candidate as a single operation that loads states from the witness's durable storage, make new states according to $HandleRequestVoteToWitness$, and writes back the new states to the witness's durable storage. These two implementations can be synchronized using an optimistic concurrency control scheme since they both occur infrequently.
+
+Figure \ref{fig:share-witness-implementation} illustrates an implementation using a share (NFS or SMB) as a witness. We associate a version number with the states, starting from 0. Each modification to the states increases the version by 1. We can then persist each version of the witness states in a file uniquely named after the version number (e.g. \textless{}version\textgreater{}.st). Whenever $HandleAppendEntriesToWitnessRequest$ or $HandleRequestVoteToWitness$ are invoked, a regular server (leader or candidate) loads the witness states from the file with the largest version number, calculates the new states, and saves the new states back to a distinct temporary file (e.g. \textless{}server id\textgreater{}.\textless{}version\textgreater{}.st). Then, the regular server tries to create a hard link from the temporary file to the desired versioned state file (i.e. \textless{}version+1\textgreater{}.st). As long as the file system guarantees atomicity in creating hardlinked files, the regular server will only succeed if the target versioned state file does not exist. If any other server has finished update states in the same version, the process needs to be repeated from the beginning. The optimistic concurrency control eliminates the need for locking overhead, which is challenging to implement in practical applications. The infrequency of witness visits makes such a scheme very suitable.
+
+\begin{figure}
+    \includegraphics[width=1\textwidth, angle=0]{share-witness-implementation.pdf}
+    \caption{Implement witness as a share}
+    \label{fig:share-witness-implementation}
+\end{figure}
+
+In addition to share, the witness functionality can also be incorporated into cloud storage, such as Azure Storage or AWS S3. Many cloud storage vendors provide optimistic concurrency mechanism for updating object data. For instance, Azure Blob Storage allows clients to update a blob object using the original ETag, combined with a conditional header, to ensure that updates only occur if the ETag remains unchanged. This guarantees that no other client has updated the blob object concurrently. The infrequent access requirements and trivial payload size for witness make cloud storage an ideal solution for this function. Consequently, it provides a broader range of implementation options for end-users.
+
+
+
+\subsection{Compatibility}\label{subsection:compatibility}
+In a cluster without witness, the extended Raft algorithm functions identically to the Raft algorithm. This compatibility allows for an existing cluster based on the Raft algorithm to upgrade seamlessly to the extended Raft algorithm in a practical application. A binary upgrade can be applied to the current cluster to adopt the extended Raft algorithm. Subsequently, the upgraded cluster behaves just like a typical Raft-based cluster and does not include a witness.
+
+Once all servers have been upgraded to accommodate the extended Raft algorithm, a membership reconfiguration operation can be conducted to add a witness into the cluster. Conversely, a cluster operating with the extended Raft algorithm can revert to the standard Raft algorithm through a binary downgrade after the removal of the witness from the cluster.
+
+This flexibility is crucial for real-world applications because it negates the need to set up a new cluster and migrate data from the existing cluster to leverage the benefits of having a witness. Consequently, this minimizes disruptions and enhances the operational efficiency of these applications.

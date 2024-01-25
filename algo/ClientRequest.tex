@@ -1,0 +1,51 @@
+\documentclass[preview, border={5pt 0pt 5pt 1pt}]{standalone}
+
+\usepackage{tlatex}
+\usepackage{color}
+\definecolor{boxshade}{gray}{.85}
+\setboolean{shading}{true}
+
+\usepackage{setspace}
+
+\begin{document}
+\onehalfspacing
+
+    \begin{tla}
+
+\* Leader i receives a client request to add v to the log.
+ClientRequest(i, v) ==
+    /\ state[i] = Leader
+    /\ LET entry  == [term       |-> currentTerm[i],
+                      subterm    |-> currentSubterm[i],
+                      value      |-> v]
+           newLog == Append(log[i], entry)
+        IN log' = [log EXCEPT ![i] = newLog]
+    /\ UNCHANGED <<messages, serverVars, candidateVars, 
+                   leaderVars, commitIndex, witnessVars>>
+        
+    \end{tla}
+\begin{tlatex}
+\@x{}%
+\@y{%
+  Leader i receives a client request to add v to the log.
+}%
+\@xx{}%
+\@x{ ClientRequest ( i ,\, v ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} state [ i ] \.{=} Leader}%
+ \@x{\@s{16.4} \.{\land} \.{\LET} entry\@s{13.31} \.{\defeq} [ term\@s{26.35}
+ \.{\mapsto} currentTerm [ i ] ,\,}%
+\@x{\@s{106.38} subterm\@s{12.30} \.{\mapsto} currentSubterm [ i ] ,\,}%
+\@x{\@s{106.38} value\@s{24.45} \.{\mapsto} v ]}%
+\@x{\@s{52.01} newLog \.{\defeq} Append ( log [ i ] ,\, entry )}%
+ \@x{\@s{31.61} \.{\IN} log \.{'} \.{=} [ log {\EXCEPT} {\bang} [ i ] \.{=}
+ newLog ]}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} messages ,\, serverVars ,\,
+ candidateVars ,\,}%
+\@x{\@s{89.98} leaderVars ,\, commitIndex ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\end{tlatex}
+
+\end{document}
+
+
+

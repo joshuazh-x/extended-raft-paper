@@ -1,0 +1,130 @@
+\documentclass{standalone}
+
+\usepackage{tlatex}
+\usepackage{color}
+\definecolor{boxshade}{gray}{.85}
+\setboolean{shading}{true}
+
+\usepackage{setspace}
+
+\begin{document}
+\onehalfspacing
+
+    \begin{tla}
+
+\* Leader i sends witness an AppendEntriesToWitness request with log entry 
+\* in current subterm acknowledged by a subquorum in current replication set.
+AppendEntriesToWitness(i) ==
+    /\ state[i] = Leader
+    /\ WitnessID \in replicationSet[i]
+    /\ LET Agree(index) == 
+               {i} \cup {k \in replicationSet[i]: matchIndex[i][k] >= index}
+           IsAgreed(k)  ==
+               /\ log[i][k].term    = currentTerm[i]
+               /\ log[i][k].subterm = currentSubterm[i]
+               /\ ({WitnessID} \cup Agree(k)) \in Quorum
+           agreeIndexes == { k \in 1..Len(log[i]): IsAgreed(k) }
+           lastEntry    == Max(agreedIndex)
+       IN /\ agreeIndexes /= {}
+          /\ \/ \* witnessSubterm never exceeds currentSubterm following specification
+                /\ currentSubterm[i] > witnessSubterm
+                /\ Send([mtype           |-> AppendEntriesToWitnessRequest,
+                         mterm           |-> currentTerm[i],
+                         mlogTerm        |-> log[i][lastEntry].term,
+                         mlogSubterm     |-> log[i][lastEntry].subterm,
+                         mreplicationSet |-> replicaitonSet[i],
+                         mindex          |-> lastEntry,
+                         \* mlog and mentries are used as history variable for
+                         \* the proof. They do not exist in a real implementation.
+                         mlog            |-> log[i],
+                         mentries        |-> SubSeq(log[i], 1, lastEntry),
+                         msource         |-> i,
+                         mdest           |-> WitnessID])
+                /\ UNCHANGED <<leaderVars>>
+             \/ \* shortcut replication
+                /\ currentSubterm[i] = witnessSubterm[i]
+                /\ Send([mtype           |-> AppendEntriesResponse,
+                         mterm           |-> currentTerm[i],
+                         msuccess        |-> TRUE,
+                         mmatchIndex     |-> lastEntry,
+                         msource         |-> WitnessID,
+                         mdest           |-> i])
+    /\ UNCHANGED <<serverVars, candidateVars, logVars, witnessVars>>
+    \end{tla}
+\begin{tlatex}
+\@x{}%
+\@y{%
+  Leader i sends witness an AppendEntriesToWitness request with log entry 
+}%
+\@xx{}%
+\@x{}%
+\@y{%
+  in current subterm acknowledged by a subquorum in current replication set.
+}%
+\@xx{}%
+\@x{ AppendEntriesToWitness ( i ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} state [ i ] \.{=} Leader}%
+\@x{\@s{16.4} \.{\land} WitnessID \.{\in} replicationSet [ i ]}%
+\@x{\@s{16.4} \.{\land} \.{\LET} Agree ( index ) \.{\defeq}}%
+ \@x{\@s{64.31} \{ i \} \.{\cup} \{ k \.{\in} replicationSet [ i ] \.{:}
+ matchIndex [ i ] [ k ] \.{\geq} index \}}%
+\@x{\@s{47.91} IsAgreed ( k )\@s{4.1} \.{\defeq}}%
+ \@x{\@s{64.31} \.{\land} log [ i ] [ k ] . term\@s{14.05} \.{=} currentTerm [
+ i ]}%
+ \@x{\@s{64.31} \.{\land} log [ i ] [ k ] . subterm \.{=} currentSubterm [ i
+ ]}%
+ \@x{\@s{64.31} \.{\land} ( \{ WitnessID \} \.{\cup} Agree ( k ) ) \.{\in}
+ Quorum}%
+ \@x{\@s{47.91} agreeIndexes \.{\defeq} \{ k \.{\in} 1 \.{\dotdot} Len ( log [
+ i ] ) \.{:} IsAgreed ( k ) \}}%
+\@x{\@s{47.91} lastEntry\@s{14.68} \.{\defeq} Max ( agreedIndex )}%
+\@x{\@s{27.51} \.{\IN} \.{\land} agreeIndexes \.{\neq} \{ \}}%
+\@x{\@s{47.91} \.{\land} \.{\lor}}%
+\@y{%
+  witnessSubterm never exceeds currentSubterm following specification
+}%
+\@xx{}%
+\@x{\@s{70.13} \.{\land} currentSubterm [ i ] \.{>} witnessSubterm}%
+ \@x{\@s{70.13} \.{\land} Send ( [ mtype\@s{41.72} \.{\mapsto}
+ AppendEntriesToWitnessRequest ,\,}%
+\@x{\@s{109.89} mterm\@s{38.77} \.{\mapsto} currentTerm [ i ] ,\,}%
+ \@x{\@s{109.89} mlogTerm\@s{23.94} \.{\mapsto} log [ i ] [ lastEntry ] . term
+ ,\,}%
+ \@x{\@s{109.89} mlogSubterm\@s{11.42} \.{\mapsto} log [ i ] [ lastEntry ] .
+ subterm ,\,}%
+\@x{\@s{109.89} mreplicationSet \.{\mapsto} replicaitonSet [ i ] ,\,}%
+\@x{\@s{109.89} mindex\@s{35.61} \.{\mapsto} lastEntry ,\,}%
+\@x{\@s{109.89}}%
+\@y{%
+  mlog and mentries are used as history variable for
+}%
+\@xx{}%
+\@x{\@s{109.89}}%
+\@y{%
+  the proof. They do not exist in a real implementation.
+}%
+\@xx{}%
+\@x{\@s{109.89} mlog\@s{46.39} \.{\mapsto} log [ i ] ,\,}%
+ \@x{\@s{109.89} mentries\@s{28.7} \.{\mapsto} SubSeq ( log [ i ] ,\, 1 ,\,
+ lastEntry ) ,\,}%
+\@x{\@s{109.89} msource\@s{32.8} \.{\mapsto} i ,\,}%
+\@x{\@s{109.89} mdest\@s{40.96} \.{\mapsto} WitnessID ] )}%
+\@x{\@s{70.13} \.{\land} {\UNCHANGED} {\langle} leaderVars {\rangle}}%
+\@x{\@s{59.02} \.{\lor}}%
+\@y{%
+  shortcut replication
+}%
+\@xx{}%
+\@x{\@s{70.13} \.{\land} currentSubterm [ i ] \.{=} witnessSubterm [ i ]}%
+ \@x{\@s{70.13} \.{\land} Send ( [ mtype\@s{49.62} \.{\mapsto}
+ AppendEntriesResponse ,\,}%
+\@x{\@s{109.89} mterm\@s{46.67} \.{\mapsto} currentTerm [ i ] ,\,}%
+\@x{\@s{109.89} msuccess\@s{36.52} \.{\mapsto} {\TRUE} ,\,}%
+\@x{\@s{109.89} mmatchIndex\@s{16.4} \.{\mapsto} lastEntry ,\,}%
+\@x{\@s{109.89} msource\@s{40.04} \.{\mapsto} WitnessID ,\,}%
+\@x{\@s{109.89} mdest\@s{49.68} \.{\mapsto} i ] )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, candidateVars
+ ,\, logVars ,\, witnessVars {\rangle}}%
+\end{tlatex}
+\end{document}
+

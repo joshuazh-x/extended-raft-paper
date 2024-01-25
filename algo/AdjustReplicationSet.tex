@@ -1,0 +1,76 @@
+\documentclass{standalone}
+
+\usepackage{tlatex}
+\usepackage{color}
+\definecolor{boxshade}{gray}{.85}
+\setboolean{shading}{true}
+
+\usepackage{setspace}
+
+\begin{document}
+\onehalfspacing
+
+    \begin{tla}
+
+\* Adjust replication set on leader i. This action updates replication set
+\* by swapping items inside and outside. While implementations may change
+\* replication set in various ways, the spec uses this simple swapping to
+\* minimize atomic regions without loss of generality.
+AdjustReplicationSet(i) ==
+    /\ state[i] = Leader
+    /\ replicationSet[i] /= Server
+    \* Swap server outside replication set with some server inside
+    /\ LET in  == CHOOSE x \in replicationSet[i]: x /= i
+           out == CHOOSE x \in Server \ replicationSet[i]: TRUE
+       IN  replicationSet' = 
+              [replicationSet EXCEPT ![i] = (@ \ {in}) \cup {out}]
+    /\ currentSubTerm' = [currentSubTerm EXCEPT ![i] = @ + 1]    
+    /\ UNCHANGED <<messages, serverVars, candidateVars, nextIndex, 
+                   matchIndex, witnessSubterm, log, commitIndex, 
+                   witnessVars>>
+    \end{tla}
+\begin{tlatex}
+\@x{}%
+\@y{%
+  Adjust replication set on leader i. This action updates replication set
+}%
+\@xx{}%
+\@x{}%
+\@y{%
+  by swapping items inside and outside. While implementations may change
+}%
+\@xx{}%
+\@x{}%
+\@y{%
+  replication set in various ways, the spec uses this simple swapping to
+}%
+\@xx{}%
+\@x{}%
+\@y{%
+  minimize atomic regions without loss of generality.
+}%
+\@xx{}%
+\@x{ AdjustReplicationSet ( i ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} state [ i ] \.{=} Leader}%
+\@x{\@s{16.4} \.{\land} replicationSet [ i ] \.{\neq} Server}%
+\@x{\@s{16.4}}%
+\@y{%
+  Swap server outside replication set with some server inside
+}%
+\@xx{}%
+ \@x{\@s{16.4} \.{\land} \.{\LET} in\@s{9.39} \.{\defeq} {\CHOOSE} x \.{\in}
+ replicationSet [ i ] \.{:} x \.{\neq} i}%
+ \@x{\@s{52.01} out \.{\defeq} {\CHOOSE} x \.{\in} Server \.{\,\backslash\,}
+ replicationSet [ i ] \.{:} {\TRUE}}%
+\@x{\@s{27.51} \.{\IN}\@s{4.09} replicationSet \.{'}\@s{15.50} \.{=}}%
+ \@x{\@s{64.31} [ replicationSet {\EXCEPT} {\bang} [ i ] \.{=} ( @
+ \.{\,\backslash\,} \{ in \} ) \.{\cup} \{ out \} ]}%
+ \@x{\@s{16.4} \.{\land} currentSubTerm \.{'} \.{=} [ currentSubTerm {\EXCEPT}
+ {\bang} [ i ] \.{=} @ \.{+} 1 ]}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} messages ,\, serverVars ,\,
+ candidateVars ,\, nextIndex ,\,}%
+\@x{\@s{89.98} matchIndex ,\, witnessSubterm ,\, log ,\, commitIndex ,\,}%
+\@x{\@s{89.98} witnessVars {\rangle}}%
+\end{tlatex}
+\end{document}
+

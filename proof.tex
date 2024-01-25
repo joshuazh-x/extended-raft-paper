@@ -1,0 +1,304 @@
+\section{Formal proof}\label{section:proof}
+
+In this section, we aim to prove the key properties of the Raft algorithm (namely, Election Safety, Leader Append-Only, Log Matching, Leader Completeness, and State Machine Safety) within the context of the extended Raft algorithm. These properties will be proven to hold true consistently in the extended Raft algorithm. Our proof will build upon the existing proof of the Raft algorithm, and we will reference lemmas from the Raft proof in the format of "Lemma R.n," where 'n' represents the lemma's index in the Raft proof.
+
+\begin{lemma}
+	Following lemmas are true in the extended Raft algorithm.
+	\begin{enumerate}
+		\item Lemma R.1. Each server's $currentTerm$ monotonically increases.
+		\item Lemma R.2. There is at most one leader per term.
+		\item Lemma R.3. A leader's log monotonically grows during its term.
+		\item Lemma R.4. An $\tuple<index,term>$ pair identifies a log prefix.
+		\item Lemma R.5. When a follower appends an entry to its log, its log after the append is a prefix of the leader's log at the time the leader sent the AppendEntries request.
+		\item Lemma R.6. A server's current term is always at least as large as the terms in its log.
+		\item Lemma R.7. The terms of entries grow monotonically in each log.
+	\end{enumerate}
+\end{lemma}
+\begin{proof}
+	\begin{enumerate}
+		\item Witness, similar to other regular servers, monotonically increases its term upon receiving a message with a larger $mterm$ (action $UpdateTerm$). This immediately validates Lemma R.1 as per the specification.
+		\item In the extended Raft algorithm, leader is elected by a quorum. Neither regular servers nor the witness vote for different servers within the same term, thus maintaining the truth of Lemma R.2 according to its proof.
+		\item Leader in the extended Raft algorithm manages its log identically to the Raft algorithm, validating Lemma R.3 since
+		\begin{enumerate}
+			\item Actions $BecomeLeader$, $ClientRequest$, and $AppendEntries$ behave same as those in the Raft algorithm. Although the log entry is associated with the current subterm, this is trivial to the proof.
+			\item $AppendEntriesToWitness$ is an implementation of the $AppendEntries$ action, with batching log prefix to a log entry (that is associated with the current subterm and has received subquorum acknowledgments from the current replication set).
+		\end{enumerate}
+		\item Lemma R.4 and Lemma R.5 are valid in the extended Raft algorithm given that:
+		\begin{enumerate}
+			\item Regular servers replicate logs identically to the Raft algorithm. The existence of a subterm in a log entry is trivial to the proof.
+			\item Leader always sends its log's prefix to the witness.
+			\item Witness replaces its log with the log prefix from the leader, hence $log'[WitnessID]$ remains a prefix of $m.mlog$ for $m$ sent to the witness.
+		\end{enumerate}
+		\item The validation of Lemma R.6 in the Raft algorithm relies on the servers' behavior in log replication. Therefore, Lemma R.6 holds true in the extended Raft algorithm as:
+		\begin{enumerate}
+			\item Regular servers replicate logs in an identical manner.
+			\item Witness accepts the request with the necessary condition $currentTerm[WitnessID]=m.mterm$.
+			\item Witness always replaces its log with the log prefix sent from the leader.
+		\end{enumerate}
+		\item The proof of Lemma R.7 depends on Lemma R.5 and Lemma R.6. Thus, Lemma R.7 is also valid in the extended Raft algorithm, as both Lemma R.5 and Lemma R.6 are proven true.
+	\end{enumerate}
+\end{proof}
+
+Now we have Election Safety property (Lemma R.2), Leader Append-Only property (Lemma R.3), and Log Matching property (Lemma R.4) hold in the extended Raft algorithm.
+
+Similarly, we have following lemmas specific for the extended Raft algorithm.
+
+\lemma{Each leader's $currentSubterm$ monotonically increases during each term:}
+\begin{displaymath}
+	\begin{aligned}
+		 & \forall i \in Server: \\
+		 & \qquad currentTerm[i]=currentTerm'[i] \\
+		 & \qquad \qquad \implies currentSubterm[i] \le currentSubterm'[i]
+	\end{aligned}
+\end{displaymath}
+\begin{proof}
+	This follows immediately from the specification.
+\end{proof}
+
+\lemma{The subterms of entries grow monotonically during its termin each log}\label{lemma:subterm-increase}
+\begin{displaymath}
+	\begin{aligned}
+		&\forall l \in allLogs: \\
+		&\qquad \forall index \in 1..(Len(l)-1): \\
+		&\qquad \qquad l[index].term = l[index+1].term \\
+		&\qquad \qquad \qquad \implies l[index].subterm \le l[index+1].subterm \\
+	\end{aligned}
+\end{displaymath}
+\begin{proof}
+	\begin{enumerate}
+		\item Initial state: all logs are empty, so the invariant holds.
+		\item Inductive step: logs change in one of the following ways:
+		\begin{enumerate}
+			\item Case: a leader adds one entry (client request)
+			\begin{enumerate}
+				\item The new entry's subterm is $currentSubterm(leader)$.
+				\item $currentSubterm$ monotonically increases during $currentTerm$.
+				\item Thus, the new entry's subterm is at least as larger as the subterms during $currentTerm$ in this log, since leader's log monotonically grows during its term.
+			\end{enumerate}
+			\item Case: a follower removes one entry (AppendEntries request)
+			\begin{enumerate}
+				\item The invariant still holds, since only the length of the log decreased.
+			\end{enumerate}
+			\item Case: a follower adds one entry (AppendEntries request), or witness replaces its log by log prefix from leader
+			\begin{enumerate}
+				\item $log'[follower]$ is a prefix of $m.mlog$ (by Lemma R.5)
+				\item $m.mlog \in allLogs$
+				\item By the inductive hypothesis, the subterms in $m.mlog$ monotonically grow during its term, so the subterms in $log'[follower]$ monotonically grow during its term.
+			\end{enumerate}
+		\end{enumerate}
+	\end{enumerate}
+\end{proof}
+
+Lemma R.8 is part of the Leader Completeness property in Raft algorithm. Given the existence of shortcut replication, and the fact that witness uses different rules to cast vote, we present proof to the equivalent \textbf{Lemma} \ref{lemma:R.8} following the same idea as that in the Raft algorithm.
+
+
+\lemma{Immediately committed entries are committed}\label{lemma:R.8}
+\begin{displaymath}
+	\begin{aligned}
+		 & \forall \entry{index,term,subterm}\in immediatelyCommitted: \\
+		 & \qquad \entry{index,term,subterm} \in committed(term)
+	\end{aligned}
+\end{displaymath}
+\begin{proof}
+	\begin{enumerate}
+		\item Consider an entry $\entry{index, term, subterm}$ that is \textit{immediately committed}.
+		\item Define
+		      \begin{displaymath}
+			      \begin{aligned}
+				      Contradicting \defeq \{ 	& election \in elections:                                  	\\
+												& \land election.eterm > term                              	\\
+												& \land \entry{index,term,subterm} \notin election.elog 	\}
+			      \end{aligned}
+		      \end{displaymath}
+		\item Let $election$ be an element in $Contradicting$ with a minimal $term$ field. That is,
+		      \begin{displaymath}
+			      \Forall e \in Contradicting: election.eterm \le e.eterm.
+		      \end{displaymath}
+		      If more than one election has the same term, choose the earliest one. (The specification does not allow this to happen, but it is safe for a leader to step down and become leader again in the same term)
+		\item It suffices to show a contradiction, which implies $Contradicting=\phi$.	
+		\item Let $\entry{index',term,subterm}$ be any entry that exists in logs of a quorum during $term$, where $index' \le index$. Such entry must exist if the subterm's replication set contains the witness, since:
+			  \begin{enumerate}
+				\item Case $\entry{index,term,subterm}$ is immediately committed with no shortcut replication: $\entry{index',term,subterm}$ exists in logs of a quorum during $term$, following the specification.
+				\item Case $\entry{index,term,subterm}$ is immediately committed with shortcut replication: Following the specification, shortcut replication can only be executed after a log entry in the same subterm being replicated to the witness. Thus $\entry{index',term,subterm}$ exists for some $index'<index$.
+			  \end{enumerate}
+		\item Let $voter$ be either
+		\begin{itemize}
+			\item any regular server that both votes in $election$ and contains $\entry{index, term, subterm}$ in its log during $term$
+			\item witness that both votes in $election$ and contains $\entry{index',term,subterm}$ in its log during $term$
+		\end{itemize}
+		 Such server must exist, since:
+			\begin{enumerate}
+				\item Case: $\entry{index, term, subterm}$ is immediately committed with no shortcut replication.
+				
+				$voter$ must exists, since:
+				\begin{enumerate}
+					\item $\entry{index,term,subterm}$ exists in logs of a quorum during $term$.
+					\item A quorum of servers voted in $election$ to make it succeed.
+					\item Two quorums always overlap.
+					\item $voter$ can be either regular server or witness.
+				\end{enumerate}
+
+				\item Case: $\entry{index,term,subterm}$ is immediately committed with shortcut replication.
+				$voter$ must exists, since:
+				\begin{enumerate}
+					\item A subquorum of regular servers contains $\entry{index,term,subterm}$ in its log during $term$. And the witness server contains $\entry{index',term,subterm}$ in its log during $term$. These make a quorum.
+					\item A quorum of servers voted in $election$ to make it succeed. The server is either regular server or witness.
+					\item Two quorums always overlap.
+				\end{enumerate} 
+			\end{enumerate}
+		\item Let $voterLog \defeq election.evoterLog[voter]$, the voter's log at the time it casts its vote.
+		\item For any entry $\entry{k,term,subterm} (k \le index)$ that the voter contains during $term$, it is also contained by the voter when it casts its vote during $election.eterm$. That is, $\entry{k,term,subterm} \in voterLog$, where $k \le index$:
+		      \begin{enumerate}
+			      \item $\entry{k,term,subterm}$ was in the $voter$'s log during $term$.
+			      \item The $voter$ must have stored the entry in $term$ before voting in $election.eterm$, since:
+			            \begin{enumerate}
+				            \item $election.eterm > term$.
+				            \item The $voter$ rejects requests with terms smaller than its current term, and its current term monotonically increases.
+			            \end{enumerate}
+			      \item The $voter$ couldn't have removed the entry before casting its vote:
+			            \begin{enumerate}
+				            \item Case: No $AppendEntriesRequest$ with $mterm<term$ removes the entry from the voter's log, since $currentTerm[voter] \ge term$ upon storing the entry, and the voter rejects requests with terms smaller than $currentTerm[voter]$.
+				            \item Case: No $AppendEntriesRequest$ with $mterm = term$ removes the entry from the voter's log, since:
+				            \begin{enumerate}
+								\item There is only one leader of $term$.
+								\item The leader of $term$ created and therefore contains the entry.
+								\item The leader would not send any conflicting requests to $voter$ during $term$.
+							\end{enumerate}
+							\item Case: No $AppendEntriesRequest$ with $mterm > term$ removes the entry from the voter's log, since:
+							\begin{enumerate}
+								\item Case: $mterm > election.eterm$:\\
+										This can't happen, since $currentTerm[voter] > election.eterm$ would have presented the voter from voting in $term$.
+								\item Case: $mterm = election.eterm$:\\
+										Since there is at most one leader per term, this request would have to come from $election.eleader$ as a result of an earlier election in the same term ($election.eterm$).
+
+										Because a leader's log grows monotonically during its term, the leader could not have had $\entry{k,term,subterm}$ in its log at the start of its term, hence it could not have had $\entry{index,term,subterm}$ because $index \ge k$. Then there exists an earlier election with the same term in $Contradicting$; this is a contradiction.
+								\item Case $mterm < election.eterm$:\\
+										The leader of $mterm$ must have contained $\entry{index,term,subterm}$ (otherwise its election would also be $Contradicting$ but have a smaller term than $election$, which is a contradiction). Thus, the leader of $mterm$ could not send any conflicting entries to the voter for this index, nor could it send any conflicting entries for prior indexes: that it has this entry implies that it has the entrire prefix before it (Raft lemma 4).
+							\end{enumerate}
+			            \end{enumerate}
+		      \end{enumerate}
+		\item Thus, we have $\entry{index,term,subterm} \in voterLog$ for non-witness voter, and $\entry{index',term,subterm} \in voterLog$ for witness voter.
+		
+		We show contradiction in following cases which will then be used to show contradiction in each case of voting rules.
+
+		\item Case: \label{case:core-1} $LastTerm(election.elog) = LastTerm(voterLog) \land Len(election.elog) \ge index$
+		\begin{enumerate}
+			\item The leader of $LastTerm(voterLog)$ monotonically grew its log during its term (by Lemma R.3).
+			\item The same leader must have had $election.elog$ as its log at some point, since it created the last entry.
+			\item Thus, $voterLog[1..index]$ is a prefix of $election.elog$.
+			\item Then $\entry{index,term,subterm} \in election.elog$, since $\entry{index,term,subterm} \in voterLog[1..index]$.
+			\item But $election \in Contradicting$ implies that $\entry{index,term,subterm} \notin election.elog$.
+		\end{enumerate}
+
+		\item Case: \label{case:core-2} $LastTerm(election.elog) > term$
+		\begin{enumerate}
+			\item $election.eterm > LastTerm(election.elog)$ since servers increment their $currentTerm$ when starting an election, and Lemma R.6 states that a server's $currentTerm$ is at least as large as the terms in its log.
+			\item Let $prior$ be the election in $elections$ with $prior.eterm=LastTerm(election.elog)$. Such an election must exist since $LastTerm(election.elog)>0$ and a server must win an election before creating an entry.
+			\item By transitivity, we now have the following inequalities: 
+			\begin{displaymath}
+				\begin{aligned}
+					&term \le \\
+					&\qquad LastTerm(election.elog) = prior.eterm < \\
+					&\qquad \qquad election.eterm \\
+				\end{aligned}
+			\end{displaymath}
+			\item $\entry{index,term,subterm} \in prior.elog$, since $prior \notin Contradicting$ ($election$ was assumed to have the lowest term of any election in $Contradicting$, and $prior.eterm<election.eterm$).
+			\item $prior.elog$ is a prefix of $election.elog$ since:
+				\begin{enumerate}
+					\item $prior.eleader$ creates entries with $prior.eterm$ by appending them to its log, which monotonicallygrows during $prior.eterm$ from $prior.elog$.
+					\item Thus, any entry with term $prior.eterm$ must follow $prior.elog$ in all logs (by Lemma R.4).
+					\item $LastTerm(election.elog)=prior.eterm$
+				\end{enumerate}
+			\item $\entry{index,term,subterm} \in election.elog$. Note that this is true no matter $\entry{index,term,subterm}$ existing in $voterLog$ or not.
+			\item This is a contradiction, since $election.elog$ was assumed to not contain the committed entry ($election \in Contradicting$).
+		\end{enumerate}
+
+		\item The log comparison during elections states the following, since $voter$ granted its vote during $election$:
+		\begin{displaymath}
+			\begin{aligned}
+				&\lor 
+				\!\begin{aligned}[t]
+					&\land voter \ne WitnessID \\
+					&\land 
+					\!\begin{aligned}[t]
+						&\lor LastTerm(election.elog) > LastTerm(voterLog) \\
+						&\lor
+						\!\begin{aligned}[t]
+							&\land LastTerm(election.elog) = LastTerm(voterLog) \\
+							&\land Len(election.elog) \ge Len(voterLog) \\
+						\end{aligned} \\
+					\end{aligned} \\
+				\end{aligned} \\
+				&\lor
+				\!\begin{aligned}[t]
+					&\land voter = WitnessID \\
+					&\land 
+					\!\begin{aligned}[t]
+						&\lor LastTerm(election.elog) > LastTerm(voterLog) \\
+						&\lor
+						\!\begin{aligned}[t]
+							&\land LastTerm(election.elog) = LastTerm(voterLog) \\
+							&\land LastSubterm(election.elog) > LastSubterm(voterLog) \\
+						\end{aligned} \\
+						&\lor
+						\!\begin{aligned}[t]
+							&\land LastTerm(election.elog) = LastTerm(voterLog) \\
+							&\land LastSubterm(election.elog) = LastSubterm(voterLog) \\
+							&\land election.evoters \setminus {WitnessID} \subset ReplicationSet \\
+						\end{aligned} \\
+					\end{aligned} \\
+				\end{aligned} \\
+			\end{aligned}
+		\end{displaymath}
+		$ReplicationSet$ is replication set of $LastSubterm(voterLog)$ in $LastTerm(voterLog)$ if $voter$ is witness.
+
+	    We now investigate each voting rule in following cases, and use the result of above two cases to show contradiction.
+
+		\item Case: \label{case:1} $voter$ is a regular server, and $LastTerm(election.elog) = LastTerm(voterLog) \land Len(election.elog) \ge Len(voterLog)$
+		\begin{enumerate}
+			\item $Len(election.elog) \ge Len(voterLog) \implies Len(election.elog) \ge index$
+			\item This leads to contradiction following case \ref{case:core-1}
+		\end{enumerate}
+
+		\item Case: \label{case:2} $LastTerm(election.elog) > LastTerm(voterLog)$, no matter $voter$ being a regular server or witness
+		\begin{enumerate}
+			\item $LastTerm(election.elog) > LastTerm(voterLog) \implies LastTerm(election.elog) > term$
+			\item This leads to contradiction following case \ref{case:core-2}
+		\end{enumerate}
+
+		\item Case: \label{case:3} $voter$ is witness, and $LastTerm(election.elog) = LastTerm(voterLog) \land LastSubterm(election.elog) > LastSubterm(voterLog)$
+		\begin{enumerate}
+			\item $LastSubterm(election.elog) > LastSubterm(voterLog) \implies Len(election.elog) > Len(voterLog) > term$, following Lemma \ref{lemma:subterm-increase}
+			\item This leads to contradiction following case \ref{case:core-1}
+		\end{enumerate}
+
+		\item Case: \label{case:4} $voter$ is witness, and
+		\begin{displaymath} 
+			\begin{aligned}
+				&\land LastTerm(election.elog) = LastTerm(voterLog) \\
+				&\land LastSubterm(election.elog) = LastSubterm(voterLog) \\
+				&\land election.evoters \cup {WitnessID} \subset ReplicationSet \\
+			\end{aligned}	
+		\end{displaymath}
+		\begin{enumerate}
+			\item $LastTerm(voterLog)=term \land LastSubterm(voterLog)=subterm$
+			\begin{enumerate}
+				\item There must be $voter'$ which is a regular server that contains $\entry{index,term,subterm}$ and votes in $election$, since
+				\begin{enumerate}
+					\item $\entry{index,term,subterm}$ exists in at least subquorum regular servers in replication set of $term$ and $subterm$, no matter if it is shortcut replicated or not.
+					\item A subquorum in replication set of $term$ and $subterm$ vote in $election$.
+					\item Subquorums of regular servers overlap in a replication set.
+				\end{enumerate}
+				\item This leads to contradiction following case \ref{case:1} and \ref{case:2}
+			\end{enumerate}
+			\item $LastTerm(voterLog)=term \land LastSubterm(voterLog)>subterm$
+			\begin{enumerate}
+				\item $LastTerm(voterLog)=term \land LastSubterm(voterLog)>subterm \implies Len(voterLog)>index$, per Lemma \ref{lemma:subterm-increase}
+				\item This leads to contradiction following case \ref{case:core-1}
+			\end{enumerate}
+			\item $LastTerm(voterLog) > term$. This leads to contradiction following case \ref{case:core-2}
+		\end{enumerate}
+	\end{enumerate}
+
+	Having Lemma \ref{lemma:R.8} proved, Lemma R.9 and Theorem R.1 are true, following the same proof in Raft algorithm. Now we have Leader Completeness and State Machine Safety proved for the extended Raft algorithm.
+\end{proof}

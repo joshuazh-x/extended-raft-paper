@@ -1,0 +1,93 @@
+\documentclass[preview, border={5pt 0pt 5pt 1pt}]{standalone}
+
+\usepackage{tlatex}
+\usepackage{color}
+\definecolor{boxshade}{gray}{.85}
+\setboolean{shading}{true}
+
+\usepackage{setspace}
+
+\begin{document}
+\onehalfspacing
+
+    \begin{tla}
+
+\* Witness receives a RequestWitnessVote request from server j with
+\* m.mterm <= currentTerm[WitnessID].
+HandleRequestWitnessVoteRequest(j, m) ==
+    LET logOk == \/ m.mlastLogTerm > witnessLastLogTerm
+                 \/ /\ m.mlastLogTerm = witnessLastLogTerm
+                    /\ m.mlastLogSubterm > witnessLastLogSubterm
+                 \/ /\ m.mlastLogTerm = witnessLastLogTerm
+                    /\ m.mlastLogSubterm = witnessLastLogSubterm
+                    /\ m.mvotesGranted \subseteq witnessReplicationSet
+        grant == /\ m.mterm = currentTerm[WitnessID]
+                 /\ logOk
+                 /\ votedFor[WitnessID] \in {Nil, j}
+    IN /\ m.mterm <= currentTerm[WitnessID]
+       /\ \/ grant  /\ votedFor' = [votedFor EXCEPT ![WitnessID] = j]
+          \/ ~grant /\ UNCHANGED votedFor
+       /\ Reply([mtype        |-> RequestVoteResponse,
+                 mterm        |-> currentTerm[WitnessID],
+                 mvoteGranted |-> grant,
+                 \* mlog is used just for the `elections' history variable for
+                 \* the proof. It would not exist in a real implementation.
+                 mlog         |-> log[WitnessID],
+                 msource      |-> WitnessID,
+                 mdest        |-> j],
+                 m)
+       /\ UNCHANGED <<state, currentTerm, candidateVars, leaderVars, 
+                      logVars, witnessVars>>
+    \end{tla}
+\begin{tlatex}
+\@x{}%
+\@y{%
+  Witness receives a RequestWitnessVote request from server j with
+}%
+\@xx{}%
+\@x{}%
+\@y{%
+  m.mterm <= currentTerm[WitnessID].
+}%
+\@xx{}%
+\@x{ HandleRequestWitnessVoteRequest ( j ,\, m ) \.{\defeq}}%
+ \@x{\@s{16.4} \.{\LET} logOk \.{\defeq} \.{\lor} m . mlastLogTerm \.{>}
+ witnessLastLogTerm}%
+\@x{\@s{80.78} \.{\lor} \.{\land} m . mlastLogTerm \.{=} witnessLastLogTerm}%
+\@x{\@s{91.89} \.{\land} m . mlastLogSubterm \.{>} witnessLastLogSubterm}%
+\@x{\@s{80.78} \.{\lor} \.{\land} m . mlastLogTerm \.{=} witnessLastLogTerm}%
+\@x{\@s{91.89} \.{\land} m . mlastLogSubterm \.{=} witnessLastLogSubterm}%
+ \@x{\@s{91.89} \.{\land} m . mvotesGranted \.{\subseteq}
+ witnessReplicationSet}%
+ \@x{\@s{36.79} grant\@s{1.78} \.{\defeq} \.{\land} m . mterm \.{=}
+ currentTerm [ WitnessID ]}%
+\@x{\@s{80.78} \.{\land} logOk}%
+\@x{\@s{80.78} \.{\land} votedFor [ WitnessID ] \.{\in} \{ Nil ,\, j \}}%
+\@x{\@s{16.4} \.{\IN} \.{\land} m . mterm \.{\leq} currentTerm [ WitnessID ]}%
+ \@x{\@s{36.79} \.{\land} \.{\lor} grant\@s{6.66} \.{\land} votedFor \.{'}
+ \.{=} [ votedFor {\EXCEPT} {\bang} [ WitnessID ] \.{=} j ]}%
+\@x{\@s{47.91} \.{\lor} {\lnot} grant \.{\land} {\UNCHANGED} votedFor}%
+ \@x{\@s{36.79} \.{\land} Reply ( [ mtype\@s{35.23} \.{\mapsto}
+ RequestVoteResponse ,\,}%
+\@x{\@s{79.36} mterm\@s{32.27} \.{\mapsto} currentTerm [ WitnessID ] ,\,}%
+\@x{\@s{79.36} mvoteGranted \.{\mapsto} grant ,\,}%
+\@x{\@s{79.36}}%
+\@y{%
+  mlog is used just for the `elections' history variable for
+}%
+\@xx{}%
+\@x{\@s{79.36}}%
+\@y{%
+  the proof. It would not exist in a real implementation.
+}%
+\@xx{}%
+\@x{\@s{79.36} mlog\@s{35.57} \.{\mapsto} log [ WitnessID ] ,\,}%
+\@x{\@s{79.36} msource\@s{20.5} \.{\mapsto} WitnessID ,\,}%
+\@x{\@s{79.36} mdest\@s{30.14} \.{\mapsto} j ] ,\,}%
+\@x{\@s{79.36} m )}%
+ \@x{\@s{36.79} \.{\land} {\UNCHANGED} {\langle} state ,\, currentTerm ,\,
+ candidateVars ,\, leaderVars ,\,}%
+\@x{\@s{110.38} logVars ,\, witnessVars {\rangle}}%
+\end{tlatex}
+\end{document}
+
