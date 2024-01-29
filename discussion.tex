@@ -1,0 +1,34 @@
+\section{Discussion}
+
+
+\subsection{Compatibility}\label{subsection:compatibility}
+In a cluster without witness, the extended Raft algorithm operates identically to the Raft algorithm. A cluste can be formed with mixed servers running with either Raft or the extended Raft algorithms. This compatibility facilitates a seamless upgrade from a cluster based on the Raft algorithm to one using the extended Raft algorithm in practical applications. A binary upgrade can be performed in the existing cluster to incorporate the extended Raft algorithm. Following this, the upgraded cluster functions similarly to a typical Raft-based cluster, without the inclusion of a witness. Once all servers have been upgraded to support the extended Raft algorithm, a membership reconfiguration operation can be performed to integrate a witness into the cluster. Conversely, a cluster functioning with the extended Raft algorithm can be reverted back to Raft algorithm through a binary downgrade, which is possible after removal of witness from the cluster.
+
+The compatibility is crucial for real-world applications. It eliminates the necessity to establish a new cluster and migrate data from the existing cluster to take advantage of the benefits offered by a witness. As a result, this minimizes disruptions and enhances the operational efficiency of these applications.
+
+\subsection{Availability}
+The Raft algorithm ensures the presence of a leader that preserves all committed log entries and continues to commit incoming requests, provided that the cluster has a quorum of connected, healthy servers. This implies that if a follower fails, the leader cannot commit if the remaining followers cannot form a quorum with the leader. Additionally, if a leader fails, a new leader can be elected among the other servers that form a quorum.
+
+However, this is a slightly different in the extended Raft algorithm.
+\subsection{Cascading Failures}
+The extended Raft algorithm's correctness doesn't guarantee that a leader can always be elected. This predicament often arises when faults occur, leading to a situation where no regular server has a more up-to-date log than witness. In other words, witness would have been the only feasible next leader if it weren't for the lack of a full log prefix. This typically happens as a result of cascading failures where servers go down sequentially.
+
+For instance, consider a cluster composed of two servers ($A$ and $B$) and a witness. If $A$ is the leader and a sequence of events unfold as described below, the cluster will find itself in a situation where $A$ is the only functioning regular server, but its log doesn't contain the new committed log entry (made by $B$). The state in the witness prevents it from casting a vote for $A$, leaving the cluster in a situation without a leader. However, this doesn't violate the correctness of the extended Raft algorithm. And a new leader can always be elected once $B$ restarts.
+\begin{enumerate}
+    \item $A$ is shut down
+    \item $B$ becomes leader
+    \item $B$ commits a new entry (hence writes states to witness)
+    \item $A$ starts up
+    \item $B$ is shut down before it replicating the new committed entry to $A$
+\end{enumerate}
+
+In real-world scenarios, when a server shuts down, its subsystems do not cease functioning in the same time. For instance, NIC connecting to the witness ($NIC_w$) may stop after the other NIC that connects to regular servers ($NIC_s$). Moreover, the server's OS ceases operation after all NICs go down. Considering the same cluster as before, if $A$ was operating as leader in the extended Raft algorithm, unfunctional $NIC_s$ would prompt it to adjust its replication set and advance the subterm. A new log entry may then be committed in the new subterm, with its term and subterm recorded to the witness through the still-functioning $NIC_w$. Now after $A$ fully shuts down, $B$ won't be elected as the new leader, since the witness, containing more up-to-date states, rejects casting a vote for it.
+
+This particular issue arises due to the limited role of the witness. However, it's a necessary trade-off to minimize the overall footprint and maintain reasonable performance when faults occur. It's important to note that this issue arises in very rare cases. Adding an extra delay in $HandleAppendEntriesToWitnessRequest$ can greately reduce the chance of the occurence. The impact to performance is trivial, as most commits do not involve writing to the witness.
+
+\subsection{Catching up upon replication set adjustment}
+When a follower server's log significantly lags behind the leader's, it may take a considerable amount of time for the follower server to catch up. Until then, new log entries in the leader will not be acknowledged by that follower server. If the live servers merely satisfy the minimal quorum number, the leader won't be able to commit until all servers catch up. This situation arises in Raft when a new server is added to a cluster, and the solution is to add the new server as a learner that receives the log but is not a part of the current membership configuration.
+
+This situation can also occur in the extended Raft algorithm when subterm changes. When a server outside replication set recovers from fault state, the leader may rejoin it to the replication set. If there is only a quorum of live servers (including the witness) in the current replication set, the leader won't be able to commit new log entries until all servers catch up. For instance, in the cluster above, if $A$ commits many entries during $B$'s downtime, $B$'s log will significantly lag behind $A$. After $B$ recovers, $A$ will advance its subterm and change its replication set to $\{A, B\}$. Now, any new entry in $A$ will not be committed until it receives $2$ acknowledgements, i.e., both $A$ and $B$ must acknowledge. As a result, the cluster won't be able to commit any entry because it will take $B$ a long time to catch up with $A$ and acknowledge.
+
+The solution to this issue is similar to the learner approach: leader does not change its replication set to add a regular server until that server's log catches up with the leader.
