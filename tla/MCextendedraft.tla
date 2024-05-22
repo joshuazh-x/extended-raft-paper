@@ -4,7 +4,7 @@ EXTENDS extendedraft, TLC, Functions, Bags
 \* Constraints
 MaxLogLength == 6
 MaxRestarts == 1
-MaxTimeouts == 1
+MaxTimeouts == 2
 MaxClientRequests == 6
 MaxTerms == MaxTimeouts + 1
 MaxReplicationSetChange == 3
@@ -107,7 +107,7 @@ MCTimeout(i) ==
 InitHistory == 
     history = [ server |-> [i \in Server |-> [restarted |-> 0, timeout |-> 0, replicationSetChanged |-> 0]],
                 global |-> << >>,
-                hadNumLeaders |-> 1,
+                hadNumLeaders |-> 0,
                 hadNumClientRequests |-> 0,
                 hadReplicationSetChanges |-> 0 ]
 
