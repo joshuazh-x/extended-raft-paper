@@ -122,6 +122,7 @@ MCSpec ==
     /\ MCInit 
     /\ [][Next]_MCvars
     \* fairness
+    /\ WF_MCvars(Next)
     /\ \E i \in NonWitnessServer : WF_MCvars(Restart(i))
     /\ \E i \in NonWitnessServer : WF_MCvars(Timeout(i))
     /\ \E i,j \in NonWitnessServer : WF_MCvars(RequestVote(i, j))
@@ -129,7 +130,7 @@ MCSpec ==
     /\ \E i \in NonWitnessServer, v \in Value : WF_MCvars(ClientRequest(i, v))
     /\ \E i \in NonWitnessServer : WF_MCvars(AdvanceCommitIndex(i))
     /\ \E i,j \in NonWitnessServer : WF_MCvars(AppendEntries(i, j))
-    /\ \E i \in NonWitnessServer: \E s \in ReplicationSets[i] : WF_MCvars(AdjustReplicationSet(i, s))
+    /\ \E i \in NonWitnessServer: \E s \in ReplicationSets[i] : SF_MCvars(AdjustReplicationSet(i, s))
     /\ \E i \in NonWitnessServer : WF_MCvars(RequestWitnessVote(i))
     /\ \E i \in NonWitnessServer : WF_MCvars(AppendEntriesToWitness(i))
     /\ WF_MCvars(NextRequestVoteRequest)

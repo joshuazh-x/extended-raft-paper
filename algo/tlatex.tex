@@ -13,28 +13,60 @@
 \chardef\%=`\%
 \fl{}
 \fl{}
-\fl{ {\VARIABLE} nextIndex}
+\fl{ AppendEntriesToWitness ( i ) \.{\defeq}}
+\fl{ \.{\land}}\al{4}{1}{ state [ i ] \.{=} Leader}
+\fl{ \.{\land}}\al{5}{1}{ WitnessServer \.{\in} replicationSet [ i ]}
+\fl{ \.{\land}}\al{6}{1}{ \.{\LET}}\al{6}{2}{ Agree ( index ) \.{\defeq}}
+ \fl{ \{ i \} \.{\cup} \{ k \.{\in} replicationSet [ i ] \.{:} matchIndex [ i
+ ] [ k ] \.{\geq} index \}}
+\fl{ IsAgreed ( k ) \.{\defeq}}
+ \fl{ \.{\land}}\al{9}{1}{ log [ i ] [ k ] . term}\al{9}{10}{
+ \.{=}}\al{9}{11}{ currentTerm [ i ]}
+ \fl{ \.{\land}}\al{10}{1}{ log [ i ] [ k ] . subterm}\al{10}{10}{
+ \.{=}}\al{10}{11}{ currentSubterm [ i ]}
+ \fl{ \.{\land}}\al{11}{1}{ ( \{ WitnessServer \} \.{\cup} Agree ( k ) )
+ \.{\in} Quorum}
+ \fl{ agreeIndexes}\al{12}{1}{ \.{\defeq}}\al{12}{2}{ \{ k \.{\in} 1
+ \.{\dotdot} Len ( log [ i ] ) \.{:} IsAgreed ( k ) \}}
+\fl{ lastEntry}\al{13}{1}{ \.{\defeq}}\al{13}{2}{ Max ( agreeIndexes )}
+\fl{ \.{\IN}}\al{14}{1}{ \.{\land}}\al{14}{2}{ agreeIndexes \.{\neq} \{ \}}
+\fl{ \.{\land}}\al{15}{1}{ \.{\lor}}\al{15}{2}{%
+\@y{%
+  witnessSubterm never exceeds currentSubterm following specification
+}%
+}
+\fl{ \.{\land}}\al{16}{1}{ currentSubterm [ i ] \.{>} witnessSubterm [ i ]}
+ \fl{ \.{\land}}\al{17}{1}{ Send ( [}\al{17}{4}{ mtype}\al{17}{5}{
+ \.{\mapsto}}\al{17}{6}{ AppendEntriesToWitnessRequest ,\,}
+\fl{ mterm}\al{18}{1}{ \.{\mapsto}}\al{18}{2}{ currentTerm [ i ] ,\,}
+\fl{ mlogTerm}\al{19}{1}{ \.{\mapsto} log [ i ] [ lastEntry ] . term ,\,}
+ \fl{ mlogSubterm}\al{20}{1}{ \.{\mapsto} log [ i ] [ lastEntry ] . subterm
+ ,\,}
+\fl{ mreplicationSet}\al{21}{1}{ \.{\mapsto} replicationSet [ i ] ,\,}
+\fl{ mindex}\al{22}{1}{ \.{\mapsto} lastEntry ,\,}
 \fl{}
 \fl{}
-\fl{ {\VARIABLE} matchIndex}
+\fl{ mlog}\al{25}{1}{ \.{\mapsto}}\al{25}{2}{ log [ i ] ,\,}
+ \fl{ mentries}\al{26}{1}{ \.{\mapsto}}\al{26}{2}{ SubSeq ( log [ i ] ,\, 1
+ ,\, lastEntry ) ,\,}
+\fl{ msource}\al{27}{1}{ \.{\mapsto} i ,\,}
+\fl{ mdest}\al{28}{1}{ \.{\mapsto} WitnessServer ] )}
+\fl{ \.{\lor}}\al{29}{1}{%
+\@y{%
+  shortcut replication
+}%
+}
+\fl{ \.{\land}}\al{30}{1}{ currentSubterm [ i ] \.{=} witnessSubterm [ i ]}
+ \fl{ \.{\land}}\al{31}{1}{ Send ( [}\al{31}{4}{ mtype}\al{31}{5}{
+ \.{\mapsto}}\al{31}{6}{ AppendEntriesResponse ,\,}
+\fl{ mterm}\al{32}{1}{ \.{\mapsto}}\al{32}{2}{ currentTerm [ i ] ,\,}
+\fl{ msuccess}\al{33}{1}{ \.{\mapsto} {\TRUE} ,\,}
+\fl{ mmatchIndex}\al{34}{1}{ \.{\mapsto} lastEntry ,\,}
+\fl{ msource}\al{35}{1}{ \.{\mapsto} WitnessServer ,\,}
+\fl{ mdest}\al{36}{1}{ \.{\mapsto} i ,\,}
+\fl{ mshortcut}\al{37}{1}{ \.{\mapsto} {\TRUE} ] )}
+ \fl{ \.{\land}}\al{38}{1}{ {\UNCHANGED} {\langle} serverVars ,\,
+ candidateVars ,\, leaderVars ,\, logVars ,\, witnessVars {\rangle}}
 \fl{}
-\fl{ {\VARIABLE} replicationSet}
-\fl{}
-\fl{ {\VARIABLE} currentSubterm}
-\fl{}
-\fl{ {\VARIABLE} witnessSubterm}
- \fl{ leaderVars \.{\defeq} {\langle}}\al{13}{3}{ nextIndex ,\, matchIndex ,\,
- elections ,\,}
-\fl{ replicationSet ,\, currentSubterm ,\, witnessSubterm {\rangle}}
-\fl{}
-\fl{}
-\fl{}
-\fl{ {\VARIABLE} witnessReplicationSet}
-\fl{}
-\fl{ {\VARIABLE} witnessLastLogTerm}
-\fl{}
-\fl{ {\VARIABLE} witnessLastLogSubterm}
-\fl{ witnessVars \.{\defeq} {\langle}}\al{23}{3}{ witnessReplicationSet ,\,}
-\fl{ witnessLastLogTerm ,\, witnessLastLogSubterm {\rangle}}
 \fl{}
 \end{document}

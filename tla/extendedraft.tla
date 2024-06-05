@@ -209,11 +209,10 @@ Restart(i) ==
     /\ voterLog'       = [voterLog EXCEPT ![i] = [j \in {} |-> <<>>]]
     /\ nextIndex'      = [nextIndex EXCEPT ![i] = [j \in Server |-> 1]]
     /\ matchIndex'     = [matchIndex EXCEPT ![i] = [j \in Server |-> 0]]
-    /\ commitIndex'    = [commitIndex EXCEPT ![i] = 0]
     /\ currentSubterm' = [currentSubterm EXCEPT ![i] = 0]
     /\ replicationSet' = [replicationSet EXCEPT ![i] = NonWitnessServer]
     /\ witnessSubterm' = [witnessSubterm EXCEPT ![i] = 0]
-    /\ UNCHANGED <<messages, currentTerm, witnessAcks, votedFor, log, elections, witnessVars>>
+    /\ UNCHANGED <<messages, currentTerm, commitIndex, witnessAcks, votedFor, log, elections, witnessVars>>
 
 \* Server i times out and starts a new election.
 Timeout(i) == /\ i /= WitnessServer
@@ -311,9 +310,6 @@ AppendEntriesToWitness(i) ==
                          mentries        |-> SubSeq(log[i], 1, lastEntry),
                          msource         |-> i,
                          mdest           |-> WitnessServer])
-                /\ witnessAcks' = witnessAcks \cup {<<currentTerm[i], lastEntry>>}
-                /\ UNCHANGED <<nextIndex, matchIndex, elections, 
-                               replicationSet, currentSubterm, witnessSubterm>>
              \/ \* shortcut replication
                 /\ currentSubterm[i] = witnessSubterm[i]
                 /\ Send([mtype           |-> AppendEntriesResponse,
@@ -321,9 +317,9 @@ AppendEntriesToWitness(i) ==
                          msuccess        |-> TRUE,
                          mmatchIndex     |-> lastEntry,
                          msource         |-> WitnessServer,
-                         mdest           |-> i])
-                /\ UNCHANGED <<leaderVars>>
-    /\ UNCHANGED <<serverVars, candidateVars, logVars, witnessVars>>
+                         mdest           |-> i,
+                         mshortcut       |-> TRUE])
+    /\ UNCHANGED <<serverVars, candidateVars, leaderVars, logVars, witnessVars>>
 
 \* Candidate i transitions to leader.
 BecomeLeader(i) ==
@@ -388,7 +384,8 @@ AdjustReplicationSet(i, s) ==
     /\ replicationSet' = [ replicationSet EXCEPT ![i] = s ]
     /\ currentSubterm' = [currentSubterm EXCEPT ![i] = @ + 1]    
     /\ UNCHANGED <<messages, serverVars, candidateVars, nextIndex, matchIndex,
-                   elections, witnessSubterm, witnessAcks, log, commitIndex, witnessVars>>
+                   elections, witnessSubterm, witnessAcks, log, commitIndex, 
+                   witnessVars>>
 
 ----
 \* Message handlers
@@ -504,7 +501,7 @@ HandleAppendEntriesRequest(i, j, m) ==
                           \* example if we process an old, duplicated request),
                           \* but that doesn't really affect anything.
                        /\ commitIndex' = [commitIndex EXCEPT ![i] =
-                                              m.mcommitIndex]
+                                              Max({@, m.mcommitIndex})]
                        /\ Reply([mtype           |-> AppendEntriesResponse,
                                  mterm           |-> currentTerm[i],
                                  msuccess        |-> TRUE,
@@ -570,19 +567,23 @@ HandleAppendEntriesToWitnessRequest(j, m) ==
 HandleAppendEntriesResponse(i, j, m) ==
     /\ m.mterm = currentTerm[i]
     /\ \/ /\ m.msuccess \* successful
-          /\ nextIndex'  = [nextIndex  EXCEPT ![i][j] = m.mmatchIndex + 1]
-          /\ matchIndex' = [matchIndex EXCEPT ![i][j] = m.mmatchIndex]
+          /\ nextIndex'  = [nextIndex  EXCEPT ![i][j] = Max({@, m.mmatchIndex + 1})]
+          /\ matchIndex' = [matchIndex EXCEPT ![i][j] = Max({@, m.mmatchIndex})]
           /\ IF j = WitnessServer /\ log[i][m.mmatchIndex].subterm = currentSubterm[i] THEN 
                 witnessSubterm' = [witnessSubterm EXCEPT ![i] = currentSubterm[i]]
              ELSE 
                 UNCHANGED <<witnessSubterm>>
+          /\ IF j = WitnessServer /\ "mshortcut" \notin DOMAIN m THEN 
+                witnessAcks' = witnessAcks \cup {<<m.mterm, m.mmatchIndex>>}
+             ELSE 
+                UNCHANGED <<witnessAcks>>
        \/ /\ \lnot m.msuccess \* not successful
           /\ nextIndex' = [nextIndex EXCEPT ![i][j] =
                                Max({nextIndex[i][j] - 1, 1})]
-          /\ UNCHANGED <<matchIndex, witnessSubterm>>
+          /\ UNCHANGED <<matchIndex, witnessSubterm, witnessAcks>>
     /\ Discard(m)
     /\ UNCHANGED <<serverVars, candidateVars, logVars, elections, 
-                   currentSubterm, replicationSet, witnessAcks, witnessVars>>
+                   currentSubterm, replicationSet, witnessVars>>
 
 \* Any RPC with a newer term causes the recipient to advance its term first.
 UpdateTerm(i, j, m) ==
@@ -676,7 +677,7 @@ Next == \/ \E i \in NonWitnessServer : Restart(i)
 Spec == 
     /\ Init 
     /\ [][Next]_vars
- 
+
 
 (***************************************************************************)
 (* The main safety properties are below                                    *)
@@ -826,8 +827,8 @@ MonotonicMatchIndexProp ==
      \* "Volatile state on leaders, reinitialized after election. For each server,
      \*  index of the highest log entry known to be replicated on server. Initialized
      \*  to 0, increases monotonically".  In other words, matchIndex never decrements
-     \* unless the current action is a node becoming leader.
-    [][(~ \E i \in NonWitnessServer: <<BecomeLeader(i)>>_vars) => 
+     \* unless the current action is a node becoming leader or restarted.
+    [][(~ \E i \in NonWitnessServer: <<BecomeLeader(i) \/ Restart(i)>>_vars) => 
             (\A i \in NonWitnessServer, j \in Server : 
                 matchIndex'[i][j] >= matchIndex[i][j])]_vars
 
@@ -853,15 +854,6 @@ LogMatchingProp ==
 
 LeaderProp ==
     []<><<\E i \in Server : state[i] = Leader>>_vars
-
-ShortcutReplicationProp ==
-    WitnessServer \in Server =>
-        []<><<\A i \in { s \in Server : state[s] = Leader }:
-            commitIndex'[i] > commitIndex[i] => 
-                LET replicated == { j \in Server: log[i][commitIndex'[i]] \in log[j] }
-                IN  /\ WitnessServer \in replicationSet[i]
-                    /\ replicated \notin Quorum
-                    /\ (replicated \cup {WitnessServer}) \in Quorum>>_vars
 
 ===============================================================================
 
