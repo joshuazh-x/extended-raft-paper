@@ -1,5 +1,7 @@
 \section{Algorithm}\label{section:algorithm}
-In this section, we present the extended Raft algorithm, which is a variant of the Raft algorithm. It is designed for cluster with regular servers and at most one witness. The witness functions strictly as a follower server, implying that its role never transitions to candidate or leader. Furthermore, a witness only maintains a minimal set of metadata.
+In this section, we present the extended Raft algorithm, which is a variant of the Raft algorithm. It is designed for cluster with ordinary Raft servers and at most one witness server. Note that we describe witness as a special server in the algorithm instead of a shared storage. But the witness server can be implemented as a shared storage as described in Section \ref{section:implementation}. 
+
+The witness server is a follower and its role never transitions to candidate or leader. 
 
 Our newly proposed algorithm minimizes data traffic and reduces the frequency of witness visits while preserving all key properties of the Raft algorithm. This implies that the extended Raft algorithm ensures that each of the following properties is consistently upheld. 
 
@@ -11,7 +13,7 @@ Our newly proposed algorithm minimizes data traffic and reduces the frequency of
     \item State Machine Safety
 \end{itemize}
 
-In the rest of this document, unless otherwise specified, the term 'server' will denote either a regular server or a witness. Consequently, the server set, denoted as $Server$, that constitutes a cluster could either be $RegularServer \cup {witness}$ or simply $RegularServer$, where $RegularServer$ is the set of all regular servers.
+In the rest of this document, unless otherwise specified, the term 'server' will denote either a ordinary raft server or a witness. Consequently, the server set, denoted as $Server$, that constitutes a Raft group could either be $NonWitnessServers \cup {witness}$ or simply $NonWitnessServers$, where $NonWitnessServers$ is the set of all ordinary raft servers.
 
 
 \subsection{Concepts and Definitions}\label{subsection:definition}
@@ -32,10 +34,11 @@ Let $ReplicationSets$ represent the set of all replication sets within a cluster
 A leader maintains its replication set based on its view of the servers and modifies it under specific conditions. A leader may alter its replication set multiple times within a single term. To uniquely identify each replication set, we introduce the notion of a 'subterm' as detailed below.
 
 \begin{definition} 
-    A term is segmented into \textsc{subterms}, each begins with a replication set. 
+    A \textsc{subterm} is a segment of a term during which leader of the term does not alter its replication set.
 \end{definition}
 
-Subterms are sequentially numbered using consecutive integers, beginning from $0$ for each term. The leader retains its current subterm and increments it when the replication set is altered. Consequently, a leader's replication set remains static throughout its subterm.
+Subterms are sequentially numbered using whole numbers in each term. Each leader maintains its current subterm number, starting from $0$, and increments it whenever it changes its replication set.
+The first subterm in a term is always $0$, with replication set $NonWitnessServer$. The subterm number increments when the replication set is altered. Consequently, a leader's replication set remains static throughout its subterm.
 
 
 \subsection{States}\label{subsection:states}
