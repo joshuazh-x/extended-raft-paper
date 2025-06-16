@@ -13,42 +13,41 @@
     \begin{tla}
 
 \* Witness receives an AppendEntriesToWitnessRequest from server j with
-\* m.mterm <= currentTerm[WitnessID]. 
+\* m.mterm <= currentTerm[WitnessServer]. 
 HandleAppendEntriesToWitnessRequest(j, m) ==
-    /\ m.mterm <= currentTerm[WitnessID]
+    /\ m.mterm <= currentTerm[WitnessServer]
     /\ \/ \* reject request
-          /\ m.mterm < currentTerm[WitnessID]
+          /\ m.mterm < currentTerm[WitnessServer]
           /\ Reply([mtype           |-> AppendEntriesResponse,
-                    mterm           |-> currentTerm[WitnessID],
+                    mterm           |-> currentTerm[WitnessServer],
                     msuccess        |-> FALSE,
                     mmatchIndex     |-> 0,
-                    msource         |-> WitnessID,
+                    msource         |-> WitnessServer,
                     mdest           |-> j],
                     m)
           /\ UNCHANGED <<serverVars, logVars, witnessVars>>
        \/ \* accept request, always no conflict.
-          /\ m.mterm = currentTerm[WitnessID]
-          /\ \/ m.mlastLogTerm > witnessLastLogTerm[WitnessID]
-             \/ /\ m.mlastLogTerm = witnessLastLogTerm[WitnessID]
-                /\ m.mlastLogSubterm > witnessLastLogSubterm[WitnessID]
-          /\ witnessReplicationSet' = 
-              [witnessReplicationSet EXCEPT![WitnessID] = m.mreplicationSet]
-          /\ witnessLastLogTerm' =
-              [witnessLastLogTerm EXCEPT![WitnessID] = m.mlastLogTerm]
-          /\ witnessLastLogSubterm' =
-              [witnessLastLogSubterm EXCEPT![WitnessID] = m.mlastLogSubterm]
+          /\ m.mterm = currentTerm[WitnessServer]
+          /\ \/ m.mlogTerm > witnessLastLogTerm
+             \/ /\ m.mlogTerm = witnessLastLogTerm
+                /\ m.mlogSubterm > witnessLastLogSubterm
+          /\ witnessReplicationSet' = m.mreplicationSet
+          /\ witnessLastLogTerm' = m.mlogTerm
+          /\ witnessLastLogSubterm' = m.mlogSubterm
           \* log will not be modified in real implementation. It is only
           \* used here for the proof.
-          /\ log' = [log EXCEPT![WitnessID] = m.mentries]
+          /\ log' = [log EXCEPT![WitnessServer] = m.mentries]
           /\ Reply([mtype           |-> AppendEntriesResponse,
-                    mterm           |-> currentTerm[WitnessID],
+                    mterm           |-> currentTerm[WitnessServer],
                     msuccess        |-> TRUE,
                     mmatchIndex     |-> m.mindex,
-                    msource         |-> WitnessID,
+                    msource         |-> WitnessServer,
                     mdest           |-> j],
                     m)
-          /\ UNCHANGED <<serverVars, log>>
+          /\ UNCHANGED <<serverVars, commitIndex>>
     /\ UNCHANGED <<candidateVars, leaderVars>>
+
+
     \end{tla}
 \begin{tlatex}
 \@x{}%
@@ -58,70 +57,64 @@ HandleAppendEntriesToWitnessRequest(j, m) ==
 \@xx{}%
 \@x{}%
 \@y{%
-  m.mterm <= currentTerm[WitnessID]. 
+  m.mterm <= currentTerm[WitnessServer]. 
 }%
 \@xx{}%
 \@x{ HandleAppendEntriesToWitnessRequest ( j ,\, m ) \.{\defeq}}%
-\@x{\@s{16.4} \.{\land} m . mterm \.{\leq} currentTerm [ WitnessID ]}%
+\@x{\@s{16.4} \.{\land} m . mterm \.{\leq} currentTerm [ WitnessServer ]}%
 \@x{\@s{16.4} \.{\land} \.{\lor}}%
 \@y{%
   reject request
 }%
 \@xx{}%
-\@x{\@s{38.62} \.{\land} m . mterm \.{<} currentTerm [ WitnessID ]}%
- \@x{\@s{38.62} \.{\land} Reply ( [ mtype\@s{49.62} \.{\mapsto}
+\@x{\@s{16.4} \.{\land} m . mterm \.{<} currentTerm [ WitnessServer ]}%
+ \@x{\@s{16.4} \.{\land} Reply ( [ mtype\@s{41.0} \.{\mapsto}
  AppendEntriesResponse ,\,}%
-\@x{\@s{81.18} mterm\@s{46.67} \.{\mapsto} currentTerm [ WitnessID ] ,\,}%
-\@x{\@s{81.18} msuccess\@s{36.52} \.{\mapsto} {\FALSE} ,\,}%
-\@x{\@s{81.18} mmatchIndex\@s{16.40} \.{\mapsto} 0 ,\,}%
-\@x{\@s{81.18} msource\@s{40.04} \.{\mapsto} WitnessID ,\,}%
-\@x{\@s{81.18} mdest\@s{49.68} \.{\mapsto} j ] ,\,}%
-\@x{\@s{81.18} m )}%
- \@x{\@s{38.62} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, logVars ,\,
+\@x{\@s{16.4} mterm\@s{41.0} \.{\mapsto} currentTerm [ WitnessServer ] ,\,}%
+\@x{\@s{16.4} msuccess\@s{41.0} \.{\mapsto} {\FALSE} ,\,}%
+\@x{\@s{16.4} mmatchIndex\@s{41.0} \.{\mapsto} 0 ,\,}%
+\@x{\@s{16.4} msource\@s{41.0} \.{\mapsto} WitnessServer ,\,}%
+\@x{\@s{16.4} mdest\@s{41.0} \.{\mapsto} j ] ,\,}%
+\@x{\@s{16.4} m )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, logVars ,\,
  witnessVars {\rangle}}%
-\@x{\@s{27.51} \.{\lor}}%
+\@x{\@s{16.4} \.{\lor}}%
 \@y{%
   accept request, always no conflict.
 }%
 \@xx{}%
-\@x{\@s{38.62} \.{\land} m . mterm \.{=} currentTerm [ WitnessID ]}%
- \@x{\@s{38.62} \.{\land} \.{\lor} m . mlastLogTerm \.{>} witnessLastLogTerm [
- WitnessID ]}%
- \@x{\@s{49.73} \.{\lor} \.{\land} m . mlastLogTerm \.{=} witnessLastLogTerm [
- WitnessID ]}%
- \@x{\@s{60.84} \.{\land} m . mlastLogSubterm \.{>} witnessLastLogSubterm [
- WitnessID ]}%
-\@x{\@s{38.62} \.{\land} witnessReplicationSet \.{'} \.{=}}%
- \@x{\@s{53.83} [ witnessReplicationSet {\EXCEPT} {\bang} [ WitnessID ] \.{=}
- m . mreplicationSet ]}%
-\@x{\@s{38.62} \.{\land} witnessLastLogTerm \.{'} \.{=}}%
- \@x{\@s{53.83} [ witnessLastLogTerm {\EXCEPT} {\bang} [ WitnessID ] \.{=} m .
- mlastLogTerm ]}%
-\@x{\@s{38.62} \.{\land} witnessLastLogSubterm \.{'} \.{=}}%
- \@x{\@s{53.83} [ witnessLastLogSubterm {\EXCEPT} {\bang} [ WitnessID ] \.{=}
- m . mlastLogSubterm ]}%
-\@x{\@s{38.62}}%
+\@x{\@s{16.4} \.{\land} m . mterm \.{=} currentTerm [ WitnessServer ]}%
+\@x{\@s{16.4} \.{\land} \.{\lor} m . mlogTerm \.{>} witnessLastLogTerm}%
+\@x{\@s{16.4} \.{\lor} \.{\land} m . mlogTerm \.{=} witnessLastLogTerm}%
+\@x{\@s{16.4} \.{\land} m . mlogSubterm \.{>} witnessLastLogSubterm}%
+ \@x{\@s{16.4} \.{\land} witnessReplicationSet \.{'} \.{=} m .
+ mreplicationSet}%
+\@x{\@s{16.4} \.{\land} witnessLastLogTerm \.{'} \.{=} m . mlogTerm}%
+\@x{\@s{16.4} \.{\land} witnessLastLogSubterm \.{'} \.{=} m . mlogSubterm}%
+\@x{\@s{16.4}}%
 \@y{%
   log will not be modified in real implementation. It is only
 }%
 \@xx{}%
-\@x{\@s{38.62}}%
+\@x{\@s{16.4}}%
 \@y{%
   used here for the proof.
 }%
 \@xx{}%
- \@x{\@s{38.62} \.{\land} log \.{'} \.{=} [ log {\EXCEPT} {\bang} [ WitnessID
- ] \.{=} m . mentries ]}%
- \@x{\@s{38.62} \.{\land} Reply ( [ mtype\@s{49.62} \.{\mapsto}
+ \@x{\@s{16.4} \.{\land} log \.{'} \.{=} [ log {\EXCEPT} {\bang} [
+ WitnessServer ] \.{=} m . mentries ]}%
+ \@x{\@s{16.4} \.{\land} Reply ( [ mtype\@s{41.0} \.{\mapsto}
  AppendEntriesResponse ,\,}%
-\@x{\@s{81.18} mterm\@s{46.67} \.{\mapsto} currentTerm [ WitnessID ] ,\,}%
-\@x{\@s{81.18} msuccess\@s{36.52} \.{\mapsto} {\TRUE} ,\,}%
-\@x{\@s{81.18} mmatchIndex\@s{16.40} \.{\mapsto} m . mindex ,\,}%
-\@x{\@s{81.18} msource\@s{40.04} \.{\mapsto} WitnessID ,\,}%
-\@x{\@s{81.18} mdest\@s{49.68} \.{\mapsto} j ] ,\,}%
-\@x{\@s{81.18} m )}%
-\@x{\@s{38.62} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, log {\rangle}}%
+\@x{\@s{16.4} mterm\@s{41.0} \.{\mapsto} currentTerm [ WitnessServer ] ,\,}%
+\@x{\@s{16.4} msuccess\@s{41.0} \.{\mapsto} {\TRUE} ,\,}%
+\@x{\@s{16.4} mmatchIndex\@s{41.0} \.{\mapsto} m . mindex ,\,}%
+\@x{\@s{16.4} msource\@s{41.0} \.{\mapsto} WitnessServer ,\,}%
+\@x{\@s{16.4} mdest\@s{41.0} \.{\mapsto} j ] ,\,}%
+\@x{\@s{16.4} m )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, commitIndex
+ {\rangle}}%
  \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} candidateVars ,\, leaderVars
  {\rangle}}%
+\@pvspace{16.0pt}%
 \end{tlatex}
 \end{document}

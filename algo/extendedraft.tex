@@ -1,0 +1,1920 @@
+\tlatex
+\@x{}\moduleLeftDash\@xx{ {\MODULE} extendedraft}\moduleRightDash\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ This is the formal specification for the extended Raft consensus algorithm.
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ \ensuremath{\.{<}TODO}: Copyright \ensuremath{Info\.{>}
+}}%
+\@xx{}%
+\@x{}%
+\@y{}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Copyright 2014 \ensuremath{Diego} \ensuremath{Ongaro}.
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ This work is licensed under the Creative Commons
+ Attribution\ensuremath{\.{-}4}.0
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ International License
+ https:\ensuremath{\.{\slsl}creativecommons.org}/licenses/by/4.0/
+}%
+\@xx{}%
+\@pvspace{8.0pt}%
+ \@x{ {\EXTENDS} Naturals ,\, FiniteSets ,\, Sequences ,\, TLC ,\, Bags ,\,
+ SequencesExt}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The set of server \ensuremath{IDs
+}}%
+\@xx{}%
+\@x{ {\CONSTANTS} Server}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The set of requests that can go into the \ensuremath{log
+}}%
+\@xx{}%
+\@x{ {\CONSTANTS} Value}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ \ensuremath{ID} of the witness
+}%
+\@xx{}%
+\@x{ {\CONSTANTS} WitnessServer}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Server states.
+}%
+\@xx{}%
+\@x{ {\CONSTANTS} Follower ,\, Candidate ,\, Leader}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ A reserved value.
+}%
+\@xx{}%
+\@x{ {\CONSTANTS} Nil}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Message types:
+}%
+\@xx{}%
+\@x{ {\CONSTANTS} RequestVoteRequest ,\, RequestVoteResponse ,\,}%
+\@x{\@s{54.75} AppendEntriesRequest ,\, AppendEntriesResponse ,\,}%
+\@x{\@s{54.75} RequestWitnessVoteRequest ,\, AppendEntriesToWitnessRequest}%
+\@pvspace{8.0pt}%
+\@x{}\midbar\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Global variables
+}%
+\@xx{}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ A bag of records representing requests and responses sent from one server
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ to another.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} messages}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ A history variable used in the proof. This would not be present in an
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ implementation.
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Keeps track of successful elections, including the initial logs of the
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ leader and voters\mbox{'} logs. Set of functions containing various things
+ about
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ successful elections (see \ensuremath{BecomeLeader}).
+}%
+\@xx{}%
+\@x{ {\VARIABLE} elections}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The set of \ensuremath{log} entries that are acknowledged by witness,
+ \ensuremath{e.g}. not shortcut replication.
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ This is used to assist invariant and does not exist in real implementation.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} witnessAcks}%
+\@pvspace{8.0pt}%
+\@x{}\midbar\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ The following variables are all per server (functions with domain
+ \ensuremath{Server}).
+}%
+\@xx{}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The server\mbox{'}s term number.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} currentTerm}%
+\@x{}%
+\@y{\@s{0}%
+ The server\mbox{'}s state (Follower, \ensuremath{Candidate}, or
+ \ensuremath{Leader}).
+}%
+\@xx{}%
+\@x{ {\VARIABLE} state}%
+\@x{}%
+\@y{\@s{0}%
+ The candidate the server voted for in its current term, or
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Nil if it hasn\mbox{'}t voted for any.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} votedFor}%
+ \@x{ serverVars \.{\defeq} {\langle} currentTerm ,\, state ,\, votedFor
+ {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ A Sequence of \ensuremath{log} entries. The index into this sequence is the
+ index of the
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ \ensuremath{log} entry. Unfortunately, the Sequence module defines
+ \ensuremath{Head(s)} as the entry
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ with index 1, so be careful not to use that!
+}%
+\@xx{}%
+\@x{ {\VARIABLE} log}%
+\@x{}%
+\@y{\@s{0}%
+ The index of the latest entry in the \ensuremath{log} the state machine may
+ apply.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} commitIndex}%
+\@x{ logVars \.{\defeq} {\langle} log ,\, commitIndex {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The following variables are used only on candidates:
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ The set of servers from which the candidate has received a
+ \ensuremath{RequestVote
+}}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ response in its \ensuremath{currentTerm}.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} votesResponded}%
+\@x{}%
+\@y{\@s{0}%
+ The set of servers from which the candidate has received a vote in its
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ \ensuremath{currentTerm}.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} votesGranted}%
+\@x{}%
+\@y{\@s{0}%
+ A history variable used in the proof. This would not be present in an
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ implementation.
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Function from each server that voted for this candidate in its
+ \ensuremath{currentTerm
+}}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ to that voter\mbox{'}s \ensuremath{log}.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} voterLog}%
+ \@x{ candidateVars \.{\defeq} {\langle} votesResponded ,\, votesGranted ,\,
+ voterLog {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The following variables are used only on leaders:
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ The next entry to send to each follower.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} nextIndex}%
+\@x{}%
+\@y{\@s{0}%
+ The latest entry that each follower has acknowledged is the same as the
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ leader\mbox{'}s. This is used to calculate \ensuremath{commitIndex} on the
+ leader.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} matchIndex}%
+\@x{}%
+\@y{\@s{0}%
+ Leader\mbox{'}s replication set
+}%
+\@xx{}%
+\@x{ {\VARIABLE} replicationSet}%
+\@x{}%
+\@y{\@s{0}%
+ Leader\mbox{'}s \ensuremath{subterm} number
+}%
+\@xx{}%
+\@x{ {\VARIABLE} currentSubterm}%
+\@x{}%
+\@y{\@s{0}%
+ The latest \ensuremath{subterm} that this leader has written to the witness
+}%
+\@xx{}%
+\@x{ {\VARIABLE} witnessSubterm}%
+ \@x{ leaderVars \.{\defeq} {\langle} nextIndex ,\, matchIndex ,\, elections
+ ,\,}%
+ \@x{\@s{69.36} replicationSet ,\, currentSubterm ,\, witnessSubterm ,\,
+ witnessAcks {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The following variables are persisted only on witness:
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ The latest replication set sent from leader
+}%
+\@xx{}%
+\@x{ {\VARIABLE} witnessReplicationSet}%
+\@x{}%
+\@y{\@s{0}%
+ The latest term of replicated \ensuremath{log} entry
+}%
+\@xx{}%
+\@x{ {\VARIABLE} witnessLastLogTerm}%
+\@x{}%
+\@y{\@s{0}%
+ The latest \ensuremath{subterm} of replicated \ensuremath{log} entry
+}%
+\@xx{}%
+\@x{ {\VARIABLE} witnessLastLogSubterm}%
+\@x{ witnessVars \.{\defeq} {\langle} witnessReplicationSet ,\,}%
+\@x{\@s{75.11} witnessLastLogTerm ,\, witnessLastLogSubterm {\rangle}}%
+\@pvspace{16.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ End of per server variables.
+}%
+\@xx{}%
+\@x{}\midbar\@xx{}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ All variables; used for stuttering (asserting state hasn\mbox{'}t changed).
+}%
+\@xx{}%
+ \@x{ vars \.{\defeq} {\langle} messages ,\, serverVars ,\, candidateVars ,\,
+ leaderVars ,\, logVars ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}\midbar\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Helpers
+}%
+\@xx{}%
+\@pvspace{8.0pt}%
+ \@x{ NonWitnessServer \.{\defeq} Server \.{\,\backslash\,} \{ WitnessServer
+ \}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The set of all quorums. This just calculates simple majorities, but the only
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ important property is that every quorum overlaps with every other.
+}%
+\@xx{}%
+ \@x{ Quorum \.{\defeq} \{ i \.{\in} {\SUBSET} ( Server ) \.{:} Cardinality (
+ i ) \.{*} 2 \.{>} Cardinality ( Server ) \}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The set of all replication sets for each server.
+}%
+\@xx{}%
+\@x{ ReplicationSets \.{\defeq}}%
+\@x{\@s{16.4} [ i \.{\in} NonWitnessServer \.{\mapsto}}%
+\@x{\@s{23.26} \{ s \.{\in} {\SUBSET} ( Server ) \.{:}}%
+\@x{\@s{33.17} \.{\land} i \.{\in} s}%
+ \@x{\@s{33.17} \.{\land} Cardinality ( s ) \.{=} Cardinality (
+ NonWitnessServer ) \} ]}%
+\@pvspace{16.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The term of the last entry in a \ensuremath{log}, or 0 if the
+ \ensuremath{log} is empty.
+}%
+\@xx{}%
+ \@x{ LastTerm ( xlog ) \.{\defeq} {\IF} Len ( xlog ) \.{=} 0 \.{\THEN} 0
+ \.{\ELSE} xlog [ Len ( xlog ) ] . term}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The \ensuremath{subterm} of the last entry in a \ensuremath{log}, or 0 if
+ the \ensuremath{log} is empty.
+}%
+\@xx{}%
+ \@x{ LastSubterm ( xlog ) \.{\defeq} {\IF} Len ( xlog ) \.{=} 0 \.{\THEN} 0
+ \.{\ELSE} xlog [ Len ( xlog ) ] . subterm}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Helper for \ensuremath{Send} and \ensuremath{Reply}. Given a message
+ \ensuremath{m} and bag of messages, return a
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ new bag of messages with one more \ensuremath{m} in it.
+}%
+\@xx{}%
+ \@x{ WithMessage ( m ,\, msgs ) \.{\defeq} msgs \.{\oplus} SetToBag ( \{ m \}
+ )}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Helper for \ensuremath{Discard} and \ensuremath{Reply}. Given a message
+ \ensuremath{m} and bag of messages, return
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ a new bag of messages with one less \ensuremath{m} in it.
+}%
+\@xx{}%
+ \@x{ WithoutMessage ( m ,\, msgs ) \.{\defeq} msgs \.{\ominus} SetToBag ( \{
+ m \} )}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Add a message to the bag of messages.
+}%
+\@xx{}%
+ \@x{ SendDirect ( m ) \.{\defeq} messages \.{'} \.{=} WithMessage ( m ,\,
+ messages )}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Remove a message from the bag of messages. Used when a server is done
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ processing a message.
+}%
+\@xx{}%
+ \@x{ DiscardDirect ( m ) \.{\defeq} messages \.{'} \.{=} WithoutMessage ( m
+ ,\, messages )}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Combination of \ensuremath{Send} and \ensuremath{Discard
+}}%
+\@xx{}%
+\@x{ ReplyDirect ( response ,\, request ) \.{\defeq}}%
+ \@x{\@s{16.4} messages \.{'} \.{=} WithoutMessage ( request ,\, WithMessage (
+ response ,\, messages ) )}%
+\@pvspace{8.0pt}%
+\@x{ Send ( m ) \.{\defeq} SendDirect ( m )}%
+ \@x{ Reply ( response ,\, request ) \.{\defeq} ReplyDirect ( response ,\,
+ request )}%
+\@x{ Discard ( m ) \.{\defeq} DiscardDirect ( m )}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Return the minimum value from a set, or undefined if the set is empty.
+}%
+\@xx{}%
+ \@x{ Min ( s ) \.{\defeq} {\CHOOSE} x \.{\in} s \.{:} \A\, y \.{\in} s \.{:}
+ x \.{\leq} y}%
+\@x{}%
+\@y{\@s{0}%
+ Return the maximum value from a set, or undefined if the set is empty.
+}%
+\@xx{}%
+ \@x{ Max ( s ) \.{\defeq} {\CHOOSE} x \.{\in} s \.{:} \A\, y \.{\in} s \.{:}
+ x \.{\geq} y}%
+ \@x{ MaxOrZero ( s ) \.{\defeq} {\IF} s \.{=} \{ \} \.{\THEN} 0 \.{\ELSE} Max
+ ( s )}%
+\@pvspace{8.0pt}%
+\@x{}\midbar\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Define initial values for all variables
+}%
+\@xx{}%
+\@pvspace{8.0pt}%
+\@x{ InitHistoryVars \.{\defeq} \.{\land} elections \.{=} \{ \}}%
+ \@x{\@s{87.75} \.{\land} voterLog\@s{0.18} \.{=} [ i \.{\in} Server
+ \.{\mapsto} [ j \.{\in} \{ \} \.{\mapsto} {\langle} {\rangle} ] ]}%
+\@x{\@s{87.75} \.{\land} witnessAcks \.{=} \{ \}}%
+ \@x{ InitServerVars \.{\defeq} \.{\land} currentTerm \.{=} [ i \.{\in} Server
+ \.{\mapsto} 1 ]}%
+ \@x{\@s{83.51} \.{\land} state\@s{34.38} \.{=} [ i \.{\in} Server \.{\mapsto}
+ Follower ]}%
+ \@x{\@s{83.51} \.{\land} votedFor\@s{17.18} \.{=} [ i \.{\in} Server
+ \.{\mapsto} Nil ]}%
+ \@x{ InitCandidateVars \.{\defeq} \.{\land} votesResponded \.{=} [ i \.{\in}
+ Server \.{\mapsto} \{ \} ]}%
+ \@x{\@s{99.87} \.{\land} votesGranted\@s{10.41} \.{=} [ i \.{\in} Server
+ \.{\mapsto} \{ \} ]}%
+\@x{}%
+\@y{\@s{0}%
+ The values \ensuremath{nextIndex[i][i]} and \ensuremath{matchIndex[i][i]}
+ are never read, since the
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ leader does not send itself messages. It\mbox{'}s still easier to include
+ these
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ in the functions.
+}%
+\@xx{}%
+ \@x{ InitLeaderVars \.{\defeq} \.{\land} nextIndex\@s{8.13} \.{=} [ i \.{\in}
+ Server \.{\mapsto} [ j \.{\in} Server \.{\mapsto} 1 ] ]}%
+ \@x{\@s{84.54} \.{\land} matchIndex \.{=} [ i \.{\in} Server \.{\mapsto} [ j
+ \.{\in} Server \.{\mapsto} 0 ] ]}%
+ \@x{\@s{84.54} \.{\land} replicationSet\@s{8.25} \.{=} [ i \.{\in} Server
+ \.{\mapsto} NonWitnessServer ]}%
+ \@x{\@s{84.54} \.{\land} currentSubterm \.{=} [ i \.{\in} Server \.{\mapsto}
+ 0 ]}%
+ \@x{\@s{84.54} \.{\land} witnessSubterm \.{=} [ i \.{\in} Server \.{\mapsto}
+ 0 ]}%
+ \@x{ InitLogVars \.{\defeq} \.{\land} log\@s{48.43} \.{=} [ i\@s{0.76}
+ \.{\in} Server \.{\mapsto} {\langle} {\rangle} ]}%
+ \@x{\@s{70.62} \.{\land} commitIndex\@s{4.10} \.{=} [ i\@s{0.76} \.{\in}
+ Server \.{\mapsto} 0 ]}%
+ \@x{ InitWitnessVars \.{\defeq} \.{\land} witnessReplicationSet \.{=}
+ NonWitnessServer}%
+\@x{\@s{90.43} \.{\land} witnessLastLogTerm \.{=} 0}%
+\@x{\@s{90.43} \.{\land} witnessLastLogSubterm \.{=} 0}%
+\@x{ Init \.{\defeq} \.{\land} messages \.{=} EmptyBag}%
+\@x{\@s{35.70} \.{\land} InitHistoryVars}%
+\@x{\@s{35.70} \.{\land} InitServerVars}%
+\@x{\@s{35.70} \.{\land} InitCandidateVars}%
+\@x{\@s{35.70} \.{\land} InitLeaderVars}%
+\@x{\@s{35.70} \.{\land} InitLogVars}%
+\@x{\@s{35.70} \.{\land} InitWitnessVars}%
+\@pvspace{8.0pt}%
+\@x{}\midbar\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Define state transitions
+}%
+\@xx{}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Server \ensuremath{i} restarts from stable storage.
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ It loses everything but its \ensuremath{currentTerm}, \ensuremath{votedFor},
+ and \ensuremath{log}.
+}%
+\@xx{}%
+\@x{ Restart ( i ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land}\@s{4.88} i\@s{53.3} \.{\neq} WitnessServer}%
+ \@x{\@s{16.4} \.{\land}\@s{4.88} state \.{'}\@s{46.90} \.{=} [ state
+ {\EXCEPT} {\bang} [ i ] \.{=} Follower ]}%
+ \@x{\@s{16.4} \.{\land}\@s{4.88} votesResponded \.{'}\@s{0.23} \.{=} [
+ votesResponded {\EXCEPT} {\bang} [ i ] \.{=} \{ \} ]}%
+ \@x{\@s{16.4} \.{\land}\@s{4.88} votesGranted \.{'}\@s{10.65} \.{=} [
+ votesGranted {\EXCEPT} {\bang} [ i ] \.{=} \{ \} ]}%
+ \@x{\@s{16.4} \.{\land}\@s{4.88} voterLog \.{'}\@s{30.41} \.{=} [ voterLog
+ {\EXCEPT} {\bang} [ i ] \.{=} [ j \.{\in} \{ \} \.{\mapsto} {\langle}
+ {\rangle} ] ]}%
+ \@x{\@s{16.4} \.{\land}\@s{4.88} nextIndex \.{'}\@s{24.89} \.{=} [ nextIndex
+ {\EXCEPT} {\bang} [ i ] \.{=} [ j \.{\in} Server \.{\mapsto} 1 ] ]}%
+ \@x{\@s{16.4} \.{\land}\@s{4.88} matchIndex \.{'}\@s{16.75} \.{=} [
+ matchIndex {\EXCEPT} {\bang} [ i ] \.{=} [ j \.{\in} Server \.{\mapsto} 0 ]
+ ]}%
+ \@x{\@s{16.4} \.{\land}\@s{4.88} currentSubterm \.{'} \.{=} [ currentSubterm
+ {\EXCEPT} {\bang} [ i ] \.{=} 0 ]}%
+ \@x{\@s{16.4} \.{\land}\@s{4.88} replicationSet \.{'}\@s{8.25} \.{=} [
+ replicationSet {\EXCEPT} {\bang} [ i ]\@s{8.25} \.{=} NonWitnessServer ]}%
+ \@x{\@s{16.4} \.{\land}\@s{4.88} witnessSubterm \.{'} \.{=} [ witnessSubterm
+ {\EXCEPT} {\bang} [ i ] \.{=} 0 ]}%
+ \@x{\@s{16.4} \.{\land}\@s{4.88} {\UNCHANGED} {\langle} messages ,\,
+ currentTerm ,\, commitIndex ,\, witnessAcks ,\, votedFor ,\, log ,\,
+ elections ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Server \ensuremath{i} times out and starts a new election.
+}%
+\@xx{}%
+\@x{ Timeout ( i ) \.{\defeq} \.{\land} i \.{\neq} WitnessServer}%
+\@x{\@s{67.98} \.{\land} state [ i ] \.{\in} \{ Follower ,\, Candidate \}}%
+ \@x{\@s{67.98} \.{\land} state \.{'} \.{=} [ state {\EXCEPT} {\bang} [ i ]
+ \.{=} Candidate ]}%
+ \@x{\@s{67.98} \.{\land} currentTerm \.{'} \.{=} [ currentTerm {\EXCEPT}
+ {\bang} [ i ] \.{=} currentTerm [ i ] \.{+} 1 ]}%
+ \@x{\@s{67.98} \.{\land} votedFor \.{'} \.{=} [ votedFor {\EXCEPT} {\bang} [
+ i ] \.{=} Nil ]}%
+ \@x{\@s{67.98} \.{\land} votesResponded \.{'} \.{=} [ votesResponded
+ {\EXCEPT} {\bang} [ i ] \.{=} \{ \} ]}%
+ \@x{\@s{67.98} \.{\land} votesGranted \.{'}\@s{10.41} \.{=} [ votesGranted
+ {\EXCEPT} {\bang} [ i ] \.{=} \{ \} ]}%
+ \@x{\@s{67.98} \.{\land} voterLog \.{'}\@s{30.17} \.{=} [ voterLog {\EXCEPT}
+ {\bang} [ i ] \.{=} [ j \.{\in} \{ \} \.{\mapsto} {\langle} {\rangle} ] ]}%
+ \@x{\@s{67.98} \.{\land} {\UNCHANGED} {\langle} messages ,\, leaderVars ,\,
+ logVars ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Candidate \ensuremath{i} sends \ensuremath{j} a \ensuremath{RequestVote}
+ request.
+}%
+\@xx{}%
+\@x{ RequestVote ( i ,\, j ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} state [ i ] \.{=} Candidate}%
+\@x{\@s{16.4} \.{\land} j \.{\neq} WitnessServer}%
+\@x{\@s{16.4} \.{\land} j \.{\notin} votesResponded [ i ]}%
+ \@x{\@s{16.4} \.{\land} Send ( [ mtype\@s{36.94} \.{\mapsto}
+ RequestVoteRequest ,\,}%
+\@x{\@s{56.16} mterm\@s{33.98} \.{\mapsto} currentTerm [ i ] ,\,}%
+\@x{\@s{56.16} mlastLogTerm\@s{0.88} \.{\mapsto} LastTerm ( log [ i ] ) ,\,}%
+\@x{\@s{56.16} mlastLogIndex \.{\mapsto} Len ( log [ i ] ) ,\,}%
+\@x{\@s{56.16} msource\@s{27.35} \.{\mapsto} i ,\,}%
+\@x{\@s{56.16} mdest\@s{36.99} \.{\mapsto} j ] )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, candidateVars
+ ,\, leaderVars ,\, logVars ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Candidate \ensuremath{i} sends witness a \ensuremath{RequestWitnessVote}
+ request.
+}%
+\@xx{}%
+\@x{ RequestWitnessVote ( i ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} state [ i ] \.{=} Candidate}%
+\@x{\@s{16.4} \.{\land} WitnessServer \.{\notin} votesResponded [ i ]}%
+ \@x{\@s{16.4} \.{\land} ( votesGranted [ i ] \.{\cup} \{ WitnessServer \} )
+ \.{\in} Quorum}%
+ \@x{\@s{16.4} \.{\land} Send ( [ mtype\@s{60.88} \.{\mapsto}
+ RequestWitnessVoteRequest ,\,}%
+\@x{\@s{56.16} mterm\@s{57.92} \.{\mapsto} currentTerm [ i ] ,\,}%
+\@x{\@s{56.16} mlastLogTerm\@s{24.82} \.{\mapsto} LastTerm ( log [ i ] ) ,\,}%
+ \@x{\@s{56.16} mlastLogSubterm\@s{12.29} \.{\mapsto} LastSubterm ( log [ i ]
+ ) ,\,}%
+\@x{\@s{56.16} mvotesGranted\@s{21.55} \.{\mapsto} votesGranted [ i ] ,\,}%
+\@x{\@s{56.16} msource\@s{51.29} \.{\mapsto} i ,\,}%
+\@x{\@s{56.16} mdest\@s{60.94} \.{\mapsto} WitnessServer ] )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, candidateVars
+ ,\, leaderVars ,\, logVars ,\,}%
+\@x{\@s{89.98} witnessVars {\rangle}}%
+\@pvspace{16.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Leader \ensuremath{i} sends \ensuremath{j} an \ensuremath{AppendEntries}
+ request containing up to 1 entry.
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ While implementations may want to send more than 1 at a time, this spec uses
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ just 1 because it minimizes atomic regions without loss of generality.
+}%
+\@xx{}%
+\@x{ AppendEntries ( i ,\, j ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} i \.{\neq} j}%
+\@x{\@s{16.4} \.{\land} state [ i ] \.{=} Leader}%
+ \@x{\@s{16.4} \.{\land} \.{\LET} prevLogIndex \.{\defeq} nextIndex [ i ] [ j
+ ] \.{-} 1}%
+\@x{\@s{47.91} prevLogTerm \.{\defeq} {\IF} prevLogIndex \.{>} 0 \.{\THEN}}%
+\@x{\@s{140.18} log [ i ] [ prevLogIndex ] . term}%
+\@x{\@s{123.92} \.{\ELSE}}%
+\@x{\@s{140.32} 0}%
+\@x{\@s{47.91}}%
+\@y{\@s{0}%
+ Send up to 1 entry, constrained by the end of the \ensuremath{log}.
+}%
+\@xx{}%
+ \@x{\@s{47.91} lastEntry \.{\defeq} Min ( \{ Len ( log [ i ] ) ,\, nextIndex
+ [ i ] [ j ] \} )}%
+ \@x{\@s{47.91} entries \.{\defeq} SubSeq ( log [ i ] ,\, nextIndex [ i ] [ j
+ ] ,\, lastEntry )}%
+ \@x{\@s{27.51} \.{\IN} Send ( [ mtype\@s{43.98} \.{\mapsto}
+ AppendEntriesRequest ,\,}%
+\@x{\@s{76.56} mterm\@s{41.02} \.{\mapsto} currentTerm [ i ] ,\,}%
+\@x{\@s{76.56} mprevLogIndex\@s{4.10} \.{\mapsto} prevLogIndex ,\,}%
+\@x{\@s{76.56} mprevLogTerm\@s{8.2} \.{\mapsto} prevLogTerm ,\,}%
+\@x{\@s{76.56} mentries\@s{31.77} \.{\mapsto} entries ,\,}%
+\@x{\@s{76.56}}%
+\@y{\@s{0}%
+ \ensuremath{mlog} is used as a history variable for the proof.
+}%
+\@xx{}%
+\@x{\@s{76.56}}%
+\@y{\@s{0}%
+ It would not exist in a real implementation.
+}%
+\@xx{}%
+\@x{\@s{76.56} mlog\@s{52.53} \.{\mapsto} log [ i ] ,\,}%
+ \@x{\@s{76.56} mcommitIndex\@s{8.2} \.{\mapsto} Min ( \{ commitIndex [ i ]
+ ,\, lastEntry \} ) ,\,}%
+\@x{\@s{76.56} msource\@s{37.46} \.{\mapsto} i ,\,}%
+\@x{\@s{76.56} mdest\@s{47.10} \.{\mapsto} j ] )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, candidateVars
+ ,\, leaderVars ,\, logVars ,\,}%
+\@x{\@s{89.98} witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Leader \ensuremath{i} sends witness an \ensuremath{AppendEntriesToWitness}
+ request with \ensuremath{log} entry
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ in current \ensuremath{subterm} acknowledged by a subquorum in current
+ replication set.
+}%
+\@xx{}%
+\@x{ AppendEntriesToWitness ( i ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} state [ i ] \.{=} Leader}%
+\@x{\@s{16.4} \.{\land} WitnessServer \.{\in} replicationSet [ i ]}%
+\@x{\@s{16.4} \.{\land} \.{\LET} Agree ( index ) \.{\defeq}}%
+ \@x{\@s{64.31} \{ i \} \.{\cup} \{ k \.{\in} replicationSet [ i ] \.{:}
+ matchIndex [ i ] [ k ] \.{\geq} index \}}%
+\@x{\@s{47.91} IsAgreed ( k )\@s{4.1} \.{\defeq}}%
+ \@x{\@s{64.31} \.{\land} log [ i ] [ k ] . term\@s{14.05} \.{=} currentTerm [
+ i ]}%
+ \@x{\@s{64.31} \.{\land} log [ i ] [ k ] . subterm \.{=} currentSubterm [ i
+ ]}%
+ \@x{\@s{64.31} \.{\land} ( \{ WitnessServer \} \.{\cup} Agree ( k ) ) \.{\in}
+ Quorum}%
+ \@x{\@s{47.91} agreeIndexes \.{\defeq} \{ k \.{\in} 1 \.{\dotdot} Len ( log [
+ i ] ) \.{:} IsAgreed ( k ) \}}%
+\@x{\@s{47.91} lastEntry\@s{14.68} \.{\defeq} Max ( agreeIndexes )}%
+\@x{\@s{27.51} \.{\IN} \.{\land} agreeIndexes \.{\neq} \{ \}}%
+\@x{\@s{47.91} \.{\land} \.{\lor}}%
+\@y{\@s{0}%
+ \ensuremath{witnessSubterm} never exceeds \ensuremath{currentSubterm}
+ following specification
+}%
+\@xx{}%
+\@x{\@s{70.13} \.{\land} currentSubterm [ i ] \.{>} witnessSubterm [ i ]}%
+ \@x{\@s{70.13} \.{\land} Send ( [ mtype\@s{41.72} \.{\mapsto}
+ AppendEntriesToWitnessRequest ,\,}%
+\@x{\@s{109.89} mterm\@s{38.77} \.{\mapsto} currentTerm [ i ] ,\,}%
+ \@x{\@s{109.89} mlogTerm\@s{23.94} \.{\mapsto} log [ i ] [ lastEntry ] . term
+ ,\,}%
+ \@x{\@s{109.89} mlogSubterm\@s{11.42} \.{\mapsto} log [ i ] [ lastEntry ] .
+ subterm ,\,}%
+\@x{\@s{109.89} mreplicationSet \.{\mapsto} replicationSet [ i ] ,\,}%
+\@x{\@s{109.89} mindex\@s{35.61} \.{\mapsto} lastEntry ,\,}%
+\@x{\@s{109.89}}%
+\@y{\@s{0}%
+ \ensuremath{mlog} and \ensuremath{mentries} are used as history variable for
+}%
+\@xx{}%
+\@x{\@s{109.89}}%
+\@y{\@s{0}%
+ the proof. They do not exist in a real implementation.
+}%
+\@xx{}%
+\@x{\@s{109.89} mlog\@s{46.39} \.{\mapsto} log [ i ] ,\,}%
+ \@x{\@s{109.89} mentries\@s{28.7} \.{\mapsto} SubSeq ( log [ i ] ,\, 1 ,\,
+ lastEntry ) ,\,}%
+\@x{\@s{109.89} msource\@s{32.8} \.{\mapsto} i ,\,}%
+\@x{\@s{109.89} mdest\@s{40.96} \.{\mapsto} WitnessServer ] )}%
+\@x{\@s{59.02} \.{\lor}}%
+\@y{\@s{0}%
+ shortcut replication
+}%
+\@xx{}%
+\@x{\@s{70.13} \.{\land} currentSubterm [ i ] \.{=} witnessSubterm [ i ]}%
+ \@x{\@s{70.13} \.{\land} Send ( [ mtype\@s{49.62} \.{\mapsto}
+ AppendEntriesResponse ,\,}%
+\@x{\@s{109.89} mterm\@s{46.67} \.{\mapsto} currentTerm [ i ] ,\,}%
+\@x{\@s{109.89} msuccess\@s{36.52} \.{\mapsto} {\TRUE} ,\,}%
+\@x{\@s{109.89} mmatchIndex\@s{16.4} \.{\mapsto} lastEntry ,\,}%
+\@x{\@s{109.89} msource\@s{40.04} \.{\mapsto} WitnessServer ,\,}%
+\@x{\@s{109.89} mdest\@s{49.68} \.{\mapsto} i ,\,}%
+\@x{\@s{109.89} mshortcut\@s{31.66} \.{\mapsto} {\TRUE} ] )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, candidateVars
+ ,\, leaderVars ,\, logVars ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Candidate \ensuremath{i} transitions to leader.
+}%
+\@xx{}%
+\@x{ BecomeLeader ( i ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} state [ i ] \.{=} Candidate}%
+\@x{\@s{16.4} \.{\land} votesGranted [ i ] \.{\in} Quorum}%
+ \@x{\@s{16.4} \.{\land} state \.{'}\@s{30.15} \.{=} [ state {\EXCEPT} {\bang}
+ [ i ] \.{=} Leader ]}%
+ \@x{\@s{16.4} \.{\land} nextIndex \.{'}\@s{8.13} \.{=} [ nextIndex {\EXCEPT}
+ {\bang} [ i ] \.{=}}%
+\@x{\@s{110.08} [ j \.{\in} Server \.{\mapsto} Len ( log [ i ] ) \.{+} 1 ] ]}%
+ \@x{\@s{16.4} \.{\land} matchIndex \.{'} \.{=} [ matchIndex {\EXCEPT} {\bang}
+ [ i ] \.{=}}%
+\@x{\@s{110.08} [ j \.{\in} Server \.{\mapsto} 0 ] ]}%
+ \@x{\@s{16.4} \.{\land} currentSubterm \.{'} \.{=} [ currentSubterm {\EXCEPT}
+ {\bang} [ i ] \.{=} 0 ]}%
+ \@x{\@s{16.4} \.{\land} replicationSet \.{'}\@s{8.25} \.{=} [ replicationSet
+ {\EXCEPT} {\bang} [ i ]\@s{8.25} \.{=} NonWitnessServer ]}%
+ \@x{\@s{16.4} \.{\land} witnessSubterm \.{'} \.{=} [ witnessSubterm {\EXCEPT}
+ {\bang} [ i ] \.{=} 0 ]}%
+\@x{\@s{16.4} \.{\land} elections \.{'}\@s{4.1} \.{=} elections \.{\cup}}%
+\@x{\@s{102.02} \{ [ eterm\@s{16.61} \.{\mapsto} currentTerm [ i ] ,\,}%
+\@x{\@s{109.80} eleader\@s{10.93} \.{\mapsto} i ,\,}%
+\@x{\@s{109.80} elog\@s{25.05} \.{\mapsto} log [ i ] ,\,}%
+\@x{\@s{109.80} evotes\@s{15.15} \.{\mapsto} votesGranted [ i ] ,\,}%
+\@x{\@s{109.80} evoterLog \.{\mapsto} voterLog [ i ] ] \}}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} messages ,\, currentTerm ,\,
+ witnessAcks ,\, votedFor ,\, candidateVars ,\, logVars ,\, witnessVars
+ {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Leader \ensuremath{i} receives a client request to add \ensuremath{v} to the
+ \ensuremath{log}.
+}%
+\@xx{}%
+\@x{ ClientRequest ( i ,\, v ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} state [ i ] \.{=} Leader}%
+ \@x{\@s{16.4} \.{\land} \.{\LET} entry\@s{13.31} \.{\defeq} [ term\@s{26.35}
+ \.{\mapsto} currentTerm [ i ] ,\,}%
+\@x{\@s{106.38} subterm\@s{12.30} \.{\mapsto} currentSubterm [ i ] ,\,}%
+\@x{\@s{106.38} value\@s{24.45} \.{\mapsto} v ]}%
+\@x{\@s{52.01} newLog \.{\defeq} Append ( log [ i ] ,\, entry )}%
+ \@x{\@s{31.61} \.{\IN} log \.{'} \.{=} [ log {\EXCEPT} {\bang} [ i ] \.{=}
+ newLog ]}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} messages ,\, serverVars ,\,
+ candidateVars ,\,}%
+\@x{\@s{89.98} leaderVars ,\, commitIndex ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Leader \ensuremath{i} advances its \ensuremath{commitIndex}.
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ This is done as a separate step from handling \ensuremath{AppendEntries}
+ responses,
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ in part to minimize atomic regions, and in part so that leaders of
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ single-server clusters are able to mark entries committed.
+}%
+\@xx{}%
+\@x{ AdvanceCommitIndex ( i ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} state [ i ] \.{=} Leader}%
+\@x{\@s{16.4} \.{\land} \.{\LET}}%
+\@y{\@s{0}%
+ The set of servers that agree up through index.
+}%
+\@xx{}%
+ \@x{\@s{47.91} Agree ( index ) \.{\defeq} \{ i \} \.{\cup} \{ k \.{\in}
+ Server \.{:}}%
+\@x{\@s{167.56} matchIndex [ i ] [ k ] \.{\geq} index \}}%
+\@x{\@s{47.91}}%
+\@y{\@s{0}%
+ The maximum indexes for which a quorum agrees
+}%
+\@xx{}%
+ \@x{\@s{47.91} agreeIndexes \.{\defeq} \{ index \.{\in} 1 \.{\dotdot} Len (
+ log [ i ] ) \.{:}}%
+\@x{\@s{143.64} Agree ( index ) \.{\in} Quorum \}}%
+\@x{\@s{47.91}}%
+\@y{\@s{0}%
+ New value for \ensuremath{commitIndex\.{'}[i]
+}}%
+\@xx{}%
+\@x{\@s{47.91} newCommitIndex \.{\defeq}}%
+\@x{\@s{60.21} {\IF} \.{\land} agreeIndexes \.{\neq} \{ \}}%
+ \@x{\@s{72.36} \.{\land} log [ i ] [ Max ( agreeIndexes ) ] . term \.{=}
+ currentTerm [ i ]}%
+ \@x{\@s{72.36} \.{\land} log [ i ] [ Max ( agreeIndexes ) ] . subterm \.{=}
+ currentSubterm [ i ]}%
+\@x{\@s{60.21} \.{\THEN}}%
+\@x{\@s{76.61} Max ( agreeIndexes )}%
+\@x{\@s{60.21} \.{\ELSE}}%
+\@x{\@s{76.61} commitIndex [ i ]}%
+ \@x{\@s{27.51} \.{\IN} commitIndex \.{'} \.{=} [ commitIndex {\EXCEPT}
+ {\bang} [ i ] \.{=} newCommitIndex ]}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} messages ,\, serverVars ,\,
+ candidateVars ,\, leaderVars ,\, log ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Adjust replication set on leader \ensuremath{i}. This action updates
+ leader\mbox{'}s replication
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ set by a new one.
+}%
+\@xx{}%
+\@x{ AdjustReplicationSet ( i ,\, s ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} state [ i ] \.{=} Leader}%
+\@x{\@s{16.4} \.{\land} replicationSet [ i ] \.{\neq} s}%
+ \@x{\@s{16.4} \.{\land} replicationSet \.{'}\@s{8.25} \.{=} [ replicationSet
+ {\EXCEPT} {\bang} [ i ] \.{=} s ]}%
+ \@x{\@s{16.4} \.{\land} currentSubterm \.{'} \.{=} [ currentSubterm {\EXCEPT}
+ {\bang} [ i ] \.{=} @ \.{+} 1 ]}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} messages ,\, serverVars ,\,
+ candidateVars ,\, nextIndex ,\, matchIndex ,\,}%
+ \@x{\@s{89.98} elections ,\, witnessSubterm ,\, witnessAcks ,\, log ,\,
+ commitIndex ,\,}%
+\@x{\@s{89.98} witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}\midbar\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Message handlers
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ \ensuremath{i \.{=}} recipient, \ensuremath{j \.{=}} sender, \ensuremath{m
+ \.{=}} message
+}%
+\@xx{}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Server \ensuremath{i} receives a \ensuremath{RequestVote} request from
+ server \ensuremath{j} with
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ \ensuremath{m.mterm \.{\leq} currentTerm[i]}.
+}%
+\@xx{}%
+\@x{ HandleRequestVoteRequest ( i ,\, j ,\, m ) \.{\defeq}}%
+ \@x{\@s{16.4} \.{\LET} logOk \.{\defeq} \.{\lor} m . mlastLogTerm \.{>}
+ LastTerm ( log [ i ] )}%
+ \@x{\@s{80.78} \.{\lor} \.{\land} m . mlastLogTerm \.{=} LastTerm ( log [ i ]
+ )}%
+\@x{\@s{91.89} \.{\land} m . mlastLogIndex \.{\geq} Len ( log [ i ] )}%
+ \@x{\@s{36.79} grant\@s{1.78} \.{\defeq} \.{\land} m . mterm \.{=}
+ currentTerm [ i ]}%
+\@x{\@s{80.78} \.{\land} logOk}%
+\@x{\@s{80.78} \.{\land} votedFor [ i ] \.{\in} \{ Nil ,\, j \}}%
+\@x{\@s{16.4} \.{\IN} \.{\land} m . mterm \.{\leq} currentTerm [ i ]}%
+ \@x{\@s{36.79} \.{\land} \.{\lor} grant\@s{6.66} \.{\land} votedFor \.{'}
+ \.{=} [ votedFor {\EXCEPT} {\bang} [ i ] \.{=} j ]}%
+\@x{\@s{47.91} \.{\lor} {\lnot} grant \.{\land} {\UNCHANGED} votedFor}%
+ \@x{\@s{36.79} \.{\land} Reply ( [ mtype\@s{35.23} \.{\mapsto}
+ RequestVoteResponse ,\,}%
+\@x{\@s{79.36} mterm\@s{32.27} \.{\mapsto} currentTerm [ i ] ,\,}%
+\@x{\@s{79.36} mvoteGranted \.{\mapsto} grant ,\,}%
+\@x{\@s{79.36}}%
+\@y{\@s{0}%
+ \ensuremath{mlog} is used just for the \ensuremath{elections} history
+ variable for
+}%
+\@xx{}%
+\@x{\@s{79.36}}%
+\@y{\@s{0}%
+ the proof. It would not exist in a real implementation.
+}%
+\@xx{}%
+\@x{\@s{79.36} mlog\@s{35.57} \.{\mapsto} log [ i ] ,\,}%
+\@x{\@s{79.36} msource\@s{20.5} \.{\mapsto} i ,\,}%
+\@x{\@s{79.36} mdest\@s{30.14} \.{\mapsto} j ] ,\,}%
+\@x{\@s{79.36} m )}%
+ \@x{\@s{36.79} \.{\land} {\UNCHANGED} {\langle} state ,\, currentTerm ,\,
+ candidateVars ,\, leaderVars ,\, logVars ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Witness receives a \ensuremath{RequestWitnessVote} request from server
+ \ensuremath{j} with
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ \ensuremath{m.mterm \.{\leq} currentTerm[WitnessServer]}.
+}%
+\@xx{}%
+\@x{ HandleRequestWitnessVoteRequest ( j ,\, m ) \.{\defeq}}%
+ \@x{\@s{16.4} \.{\LET} logOk \.{\defeq} \.{\lor} m . mlastLogTerm \.{>}
+ witnessLastLogTerm}%
+\@x{\@s{80.78} \.{\lor} \.{\land} m . mlastLogTerm \.{=} witnessLastLogTerm}%
+\@x{\@s{91.89} \.{\land} m . mlastLogSubterm \.{>} witnessLastLogSubterm}%
+\@x{\@s{80.78} \.{\lor} \.{\land} m . mlastLogTerm \.{=} witnessLastLogTerm}%
+\@x{\@s{91.89} \.{\land} m . mlastLogSubterm \.{=} witnessLastLogSubterm}%
+ \@x{\@s{91.89} \.{\land} m . mvotesGranted \.{\subseteq}
+ witnessReplicationSet}%
+ \@x{\@s{36.79} grant\@s{1.78} \.{\defeq} \.{\land} m . mterm \.{=}
+ currentTerm [ WitnessServer ]}%
+\@x{\@s{80.78} \.{\land} logOk}%
+\@x{\@s{80.78} \.{\land} votedFor [ WitnessServer ] \.{\in} \{ Nil ,\, j \}}%
+ \@x{\@s{16.4} \.{\IN} \.{\land} m . mterm \.{\leq} currentTerm [
+ WitnessServer ]}%
+ \@x{\@s{36.79} \.{\land} \.{\lor} grant\@s{6.66} \.{\land} votedFor \.{'}
+ \.{=} [ votedFor {\EXCEPT} {\bang} [ WitnessServer ] \.{=} j ]}%
+\@x{\@s{47.91} \.{\lor} {\lnot} grant \.{\land} {\UNCHANGED} votedFor}%
+ \@x{\@s{36.79} \.{\land} Reply ( [ mtype\@s{35.23} \.{\mapsto}
+ RequestVoteResponse ,\,}%
+\@x{\@s{79.36} mterm\@s{32.27} \.{\mapsto} currentTerm [ WitnessServer ] ,\,}%
+\@x{\@s{79.36} mvoteGranted \.{\mapsto} grant ,\,}%
+\@x{\@s{79.36}}%
+\@y{\@s{0}%
+ \ensuremath{mlog} is used just for the \ensuremath{elections} history
+ variable for
+}%
+\@xx{}%
+\@x{\@s{79.36}}%
+\@y{\@s{0}%
+ the proof. It would not exist in a real implementation.
+}%
+\@xx{}%
+\@x{\@s{79.36} mlog\@s{35.57} \.{\mapsto} log [ WitnessServer ] ,\,}%
+\@x{\@s{79.36} msource\@s{20.5} \.{\mapsto} WitnessServer ,\,}%
+\@x{\@s{79.36} mdest\@s{30.14} \.{\mapsto} j ] ,\,}%
+\@x{\@s{79.36} m )}%
+ \@x{\@s{36.79} \.{\land} {\UNCHANGED} {\langle} state ,\, currentTerm ,\,
+ candidateVars ,\, leaderVars ,\,}%
+\@x{\@s{110.38} logVars ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Server \ensuremath{i} receives a \ensuremath{RequestVote} response from
+ server \ensuremath{j} with
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ \ensuremath{m.mterm \.{=} currentTerm[i]}.
+}%
+\@xx{}%
+\@x{ HandleRequestVoteResponse ( i ,\, j ,\, m ) \.{\defeq}}%
+\@x{\@s{16.4}}%
+\@y{\@s{0}%
+ This tallies votes even when the current state is not
+ \ensuremath{Candidate}, but
+}%
+\@xx{}%
+\@x{\@s{16.4}}%
+\@y{\@s{0}%
+ they won\mbox{'}t be looked at, so it doesn\mbox{'}t matter.
+}%
+\@xx{}%
+\@x{\@s{16.4} \.{\land} m . mterm \.{=} currentTerm [ i ]}%
+ \@x{\@s{16.4} \.{\land} votesResponded \.{'} \.{=} [ votesResponded {\EXCEPT}
+ {\bang} [ i ] \.{=}}%
+\@x{\@s{130.69} votesResponded [ i ] \.{\cup} \{ j \} ]}%
+\@x{\@s{16.4} \.{\land} \.{\lor} \.{\land} m . mvoteGranted}%
+ \@x{\@s{38.62} \.{\land} votesGranted \.{'} \.{=} [ votesGranted {\EXCEPT}
+ {\bang} [ i ] \.{=}}%
+\@x{\@s{142.50} votesGranted [ i ] \.{\cup} \{ j \} ]}%
+ \@x{\@s{38.62} \.{\land} voterLog \.{'} \.{=} [ voterLog {\EXCEPT} {\bang} [
+ i ] \.{=}}%
+\@x{\@s{122.74} voterLog [ i ] \.{\,@@\,} ( j \.{\colongt} m . mlog ) ]}%
+\@x{\@s{27.51} \.{\lor} \.{\land} {\lnot} m . mvoteGranted}%
+ \@x{\@s{38.62} \.{\land} {\UNCHANGED} {\langle} votesGranted ,\, voterLog
+ {\rangle}}%
+\@x{\@s{16.4} \.{\land} Discard ( m )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, votedFor ,\,
+ leaderVars ,\, logVars ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Server \ensuremath{i} receives an \ensuremath{AppendEntries} request from
+ server \ensuremath{j} with
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ \ensuremath{m.mterm \.{\leq} currentTerm[i]}. This just handles
+ \ensuremath{m.entries} of length 0 or 1, but
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ implementations could safely accept more by treating them the same as
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ multiple independent requests of 1 entry.
+}%
+\@xx{}%
+\@x{ HandleAppendEntriesRequest ( i ,\, j ,\, m ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\LET} logOk \.{\defeq} \.{\lor} m . mprevLogIndex \.{=} 0}%
+\@x{\@s{80.78} \.{\lor} \.{\land} m . mprevLogIndex \.{>} 0}%
+\@x{\@s{91.89} \.{\land} m . mprevLogIndex \.{\leq} Len ( log [ i ] )}%
+ \@x{\@s{91.89} \.{\land} m . mprevLogTerm \.{=} log [ i ] [ m . mprevLogIndex
+ ] . term}%
+\@x{\@s{16.4} \.{\IN} \.{\land} m . mterm \.{\leq} currentTerm [ i ]}%
+\@x{\@s{36.79} \.{\land} \.{\lor} \.{\land}}%
+\@y{\@s{0}%
+ reject request
+}%
+\@xx{}%
+\@x{\@s{70.13} \.{\lor} m . mterm \.{<} currentTerm [ i ]}%
+\@x{\@s{70.13} \.{\lor} \.{\land} m . mterm \.{=} currentTerm [ i ]}%
+\@x{\@s{81.24} \.{\land} state [ i ] \.{=} Follower}%
+\@x{\@s{81.24} \.{\land} {\lnot} logOk}%
+ \@x{\@s{59.02} \.{\land} Reply ( [ mtype\@s{49.62} \.{\mapsto}
+ AppendEntriesResponse ,\,}%
+\@x{\@s{101.58} mterm\@s{46.67} \.{\mapsto} currentTerm [ i ] ,\,}%
+\@x{\@s{101.58} msuccess\@s{36.52} \.{\mapsto} {\FALSE} ,\,}%
+\@x{\@s{101.58} mmatchIndex\@s{16.4} \.{\mapsto} 0 ,\,}%
+\@x{\@s{101.58} msource\@s{40.04} \.{\mapsto} i ,\,}%
+\@x{\@s{101.58} mdest\@s{49.68} \.{\mapsto} j ] ,\,}%
+\@x{\@s{101.58} m )}%
+ \@x{\@s{59.02} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, logVars
+ {\rangle}}%
+\@x{\@s{47.91} \.{\lor}}%
+\@y{\@s{0}%
+ return to follower state
+}%
+\@xx{}%
+\@x{\@s{59.02} \.{\land} m . mterm \.{=} currentTerm [ i ]}%
+\@x{\@s{59.02} \.{\land} state [ i ] \.{=} Candidate}%
+ \@x{\@s{59.02} \.{\land} state \.{'} \.{=} [ state {\EXCEPT} {\bang} [ i ]
+ \.{=} Follower ]}%
+ \@x{\@s{59.02} \.{\land} {\UNCHANGED} {\langle} currentTerm ,\, votedFor ,\,
+ logVars ,\, messages {\rangle}}%
+\@x{\@s{47.91} \.{\lor}}%
+\@y{\@s{0}%
+ accept request
+}%
+\@xx{}%
+\@x{\@s{59.02} \.{\land} m . mterm \.{=} currentTerm [ i ]}%
+\@x{\@s{59.02} \.{\land} state [ i ] \.{=} Follower}%
+\@x{\@s{59.02} \.{\land} logOk}%
+\@x{\@s{59.02} \.{\land} \.{\LET} index \.{\defeq} m . mprevLogIndex \.{+} 1}%
+\@x{\@s{70.13} \.{\IN} \.{\lor}}%
+\@y{\@s{0}%
+ already done with request
+}%
+\@xx{}%
+\@x{\@s{105.74} \.{\land} \.{\lor} m . mentries \.{=} {\langle} {\rangle}}%
+\@x{\@s{116.85} \.{\lor} \.{\land} m . mentries \.{\neq} {\langle} {\rangle}}%
+\@x{\@s{127.96} \.{\land} Len ( log [ i ] ) \.{\geq} index}%
+ \@x{\@s{127.96} \.{\land} log [ i ] [ index ] . term \.{=} m . mentries [ 1 ]
+ . term}%
+\@x{\@s{116.85}}%
+\@y{\@s{0}%
+ This could make our \ensuremath{commitIndex} decrease (for
+}%
+\@xx{}%
+\@x{\@s{116.85}}%
+\@y{\@s{0}%
+ example if we process an old, duplicated request),
+}%
+\@xx{}%
+\@x{\@s{116.85}}%
+\@y{\@s{0}%
+ but that doesn\mbox{'}t really affect anything.
+}%
+\@xx{}%
+ \@x{\@s{105.74} \.{\land} commitIndex \.{'} \.{=} [ commitIndex {\EXCEPT}
+ {\bang} [ i ] \.{=}}%
+\@x{\@s{209.14} Max ( \{ @ ,\, m . mcommitIndex \} ) ]}%
+ \@x{\@s{105.74} \.{\land} Reply ( [ mtype\@s{49.62} \.{\mapsto}
+ AppendEntriesResponse ,\,}%
+\@x{\@s{148.31} mterm\@s{46.67} \.{\mapsto} currentTerm [ i ] ,\,}%
+\@x{\@s{148.31} msuccess\@s{36.52} \.{\mapsto} {\TRUE} ,\,}%
+\@x{\@s{148.31} mmatchIndex\@s{16.4} \.{\mapsto} m . mprevLogIndex \.{+}}%
+\@x{\@s{239.79} Len ( m . mentries ) ,\,}%
+\@x{\@s{148.31} msource\@s{40.04} \.{\mapsto} i ,\,}%
+\@x{\@s{148.31} mdest\@s{49.68} \.{\mapsto} j ] ,\,}%
+\@x{\@s{148.31} m )}%
+ \@x{\@s{105.74} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, log
+ {\rangle}}%
+\@x{\@s{90.53} \.{\lor}}%
+\@y{\@s{0}%
+ conflict: remove 1 entry
+}%
+\@xx{}%
+\@x{\@s{105.74} \.{\land} m . mentries \.{\neq} {\langle} {\rangle}}%
+\@x{\@s{105.74} \.{\land} Len ( log [ i ] ) \.{\geq} index}%
+ \@x{\@s{105.74} \.{\land} log [ i ] [ index ] . term\@s{13.31} \.{\neq} m .
+ mentries [ 1 ] . term}%
+ \@x{\@s{105.74} \.{\land} \.{\LET} new \.{\defeq} [ index2 \.{\in} 1
+ \.{\dotdot} ( Len ( log [ i ] ) \.{-} 1 ) \.{\mapsto}}%
+\@x{\@s{193.26} log [ i ] [ index2 ] ]}%
+ \@x{\@s{116.85} \.{\IN} log \.{'} \.{=} [ log {\EXCEPT} {\bang} [ i ] \.{=}
+ new ]}%
+ \@x{\@s{105.74} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, commitIndex
+ ,\, messages {\rangle}}%
+\@x{\@s{90.53} \.{\lor}}%
+\@y{\@s{0}%
+ no conflict: append entry
+}%
+\@xx{}%
+\@x{\@s{105.74} \.{\land} m . mentries \.{\neq} {\langle} {\rangle}}%
+\@x{\@s{105.74} \.{\land} Len ( log [ i ] ) \.{=} m . mprevLogIndex}%
+ \@x{\@s{105.74} \.{\land} log \.{'} \.{=} [ log {\EXCEPT} {\bang} [ i ]
+ \.{=}}%
+\@x{\@s{161.05} Append ( log [ i ] ,\, m . mentries [ 1 ] ) ]}%
+ \@x{\@s{105.74} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, commitIndex
+ ,\, messages {\rangle}}%
+ \@x{\@s{36.79} \.{\land} {\UNCHANGED} {\langle} candidateVars ,\, leaderVars
+ ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Witness receives an \ensuremath{AppendEntriesToWitnessRequest} from server
+ \ensuremath{j} with
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ \ensuremath{m.mterm \.{\leq} currentTerm[WitnessServer]}.
+}%
+\@xx{}%
+\@x{ HandleAppendEntriesToWitnessRequest ( j ,\, m ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} m . mterm \.{\leq} currentTerm [ WitnessServer ]}%
+\@x{\@s{16.4} \.{\land} \.{\lor}}%
+\@y{\@s{0}%
+ reject request
+}%
+\@xx{}%
+\@x{\@s{38.62} \.{\land} m . mterm \.{<} currentTerm [ WitnessServer ]}%
+ \@x{\@s{38.62} \.{\land} Reply ( [ mtype\@s{49.62} \.{\mapsto}
+ AppendEntriesResponse ,\,}%
+\@x{\@s{81.18} mterm\@s{46.67} \.{\mapsto} currentTerm [ WitnessServer ] ,\,}%
+\@x{\@s{81.18} msuccess\@s{36.52} \.{\mapsto} {\FALSE} ,\,}%
+\@x{\@s{81.18} mmatchIndex\@s{16.40} \.{\mapsto} 0 ,\,}%
+\@x{\@s{81.18} msource\@s{40.04} \.{\mapsto} WitnessServer ,\,}%
+\@x{\@s{81.18} mdest\@s{49.68} \.{\mapsto} j ] ,\,}%
+\@x{\@s{81.18} m )}%
+ \@x{\@s{38.62} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, logVars ,\,
+ witnessVars {\rangle}}%
+\@x{\@s{27.51} \.{\lor}}%
+\@y{\@s{0}%
+ accept request, always no conflict.
+}%
+\@xx{}%
+\@x{\@s{38.62} \.{\land} m . mterm \.{=} currentTerm [ WitnessServer ]}%
+\@x{\@s{38.62} \.{\land} \.{\lor} m . mlogTerm \.{>} witnessLastLogTerm}%
+\@x{\@s{49.73} \.{\lor} \.{\land} m . mlogTerm \.{=} witnessLastLogTerm}%
+\@x{\@s{60.84} \.{\land} m . mlogSubterm \.{>} witnessLastLogSubterm}%
+ \@x{\@s{38.62} \.{\land} witnessReplicationSet \.{'} \.{=} m .
+ mreplicationSet}%
+\@x{\@s{38.62} \.{\land} witnessLastLogTerm \.{'} \.{=} m . mlogTerm}%
+\@x{\@s{38.62} \.{\land} witnessLastLogSubterm \.{'} \.{=} m . mlogSubterm}%
+\@x{\@s{38.62}}%
+\@y{\@s{0}%
+ \ensuremath{log} will not be modified in real implementation. It is only
+}%
+\@xx{}%
+\@x{\@s{38.62}}%
+\@y{\@s{0}%
+ used here for the proof.
+}%
+\@xx{}%
+ \@x{\@s{38.62} \.{\land} log \.{'} \.{=} [ log {\EXCEPT} {\bang} [
+ WitnessServer ] \.{=} m . mentries ]}%
+ \@x{\@s{38.62} \.{\land} Reply ( [ mtype\@s{49.62} \.{\mapsto}
+ AppendEntriesResponse ,\,}%
+\@x{\@s{81.18} mterm\@s{46.67} \.{\mapsto} currentTerm [ WitnessServer ] ,\,}%
+\@x{\@s{81.18} msuccess\@s{36.52} \.{\mapsto} {\TRUE} ,\,}%
+\@x{\@s{81.18} mmatchIndex\@s{16.40} \.{\mapsto} m . mindex ,\,}%
+\@x{\@s{81.18} msource\@s{40.04} \.{\mapsto} WitnessServer ,\,}%
+\@x{\@s{81.18} mdest\@s{49.68} \.{\mapsto} j ] ,\,}%
+\@x{\@s{81.18} m )}%
+ \@x{\@s{38.62} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, commitIndex
+ {\rangle}}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} candidateVars ,\, leaderVars
+ {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Server \ensuremath{i} receives an \ensuremath{AppendEntries} response from
+ server \ensuremath{j} with
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ \ensuremath{m.mterm \.{=} currentTerm[i]}.
+}%
+\@xx{}%
+\@x{ HandleAppendEntriesResponse ( i ,\, j ,\, m ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} m . mterm \.{=} currentTerm [ i ]}%
+\@x{\@s{16.4} \.{\land} \.{\lor} \.{\land} m . msuccess}%
+\@y{\@s{0}%
+ successful
+}%
+\@xx{}%
+ \@x{\@s{38.62} \.{\land} nextIndex \.{'}\@s{8.13} \.{=} [ nextIndex\@s{4.1}
+ {\EXCEPT} {\bang} [ i ] [ j ]\@s{4.03} \.{=} Max ( \{ @ ,\, m . mmatchIndex
+ \.{+} 1 \} ) ]}%
+ \@x{\@s{38.62} \.{\land} matchIndex \.{'} \.{=} [ matchIndex {\EXCEPT}
+ {\bang} [ i ] [ j ] \.{=} Max ( \{ @ ,\, m . mmatchIndex \} ) ]}%
+ \@x{\@s{38.62} \.{\land} {\IF} j \.{=} WitnessServer \.{\land} log [ i ] [ m
+ . mmatchIndex ] . subterm \.{=} currentSubterm [ i ] \.{\THEN}}%
+ \@x{\@s{61.88} witnessSubterm \.{'} \.{=} [ witnessSubterm {\EXCEPT} {\bang}
+ [ i ] \.{=} currentSubterm [ i ] ]}%
+\@x{\@s{49.73} \.{\ELSE}}%
+\@x{\@s{62.03} {\UNCHANGED} {\langle} witnessSubterm {\rangle}}%
+ \@x{\@s{38.62} \.{\land} {\IF} j \.{=} WitnessServer \.{\land}\@w{mshortcut}
+ \.{\notin} {\DOMAIN} m \.{\THEN}}%
+ \@x{\@s{61.88} witnessAcks \.{'} \.{=} witnessAcks \.{\cup} \{ {\langle} m .
+ mterm ,\, m . mmatchIndex {\rangle} \}}%
+\@x{\@s{49.73} \.{\ELSE}}%
+\@x{\@s{62.03} {\UNCHANGED} {\langle} witnessAcks {\rangle}}%
+\@x{\@s{27.51} \.{\lor} \.{\land} {\lnot} m . msuccess}%
+\@y{\@s{0}%
+ not successful
+}%
+\@xx{}%
+ \@x{\@s{38.62} \.{\land} nextIndex \.{'} \.{=} [ nextIndex {\EXCEPT} {\bang}
+ [ i ] [ j ] \.{=}}%
+\@x{\@s{128.26} Max ( \{ nextIndex [ i ] [ j ] \.{-} 1 ,\, 1 \} ) ]}%
+ \@x{\@s{38.62} \.{\land} {\UNCHANGED} {\langle} matchIndex ,\, witnessSubterm
+ ,\, witnessAcks {\rangle}}%
+\@x{\@s{16.4} \.{\land} Discard ( m )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, candidateVars
+ ,\, logVars ,\, elections ,\,}%
+\@x{\@s{89.98} currentSubterm ,\, replicationSet ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Any \ensuremath{RPC} with a newer term causes the recipient to advance its
+ term first.
+}%
+\@xx{}%
+\@x{ UpdateTerm ( i ,\, j ,\, m ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} m . mterm \.{>} currentTerm [ i ]}%
+ \@x{\@s{16.4} \.{\land} currentTerm \.{'}\@s{12.29} \.{=} [ currentTerm
+ {\EXCEPT} {\bang} [ i ] \.{=} m . mterm ]}%
+ \@x{\@s{16.4} \.{\land} state \.{'}\@s{46.68} \.{=} [ state\@s{24.59}
+ {\EXCEPT} {\bang} [ i ]\@s{9.78} \.{=} Follower ]}%
+ \@x{\@s{16.4} \.{\land} votedFor \.{'}\@s{29.48} \.{=} [ votedFor\@s{12.29}
+ {\EXCEPT} {\bang} [ i ]\@s{4.88} \.{=} Nil ]}%
+\@x{\@s{27.51}}%
+\@y{\@s{0}%
+ messages is unchanged so \ensuremath{m} can be processed further.
+}%
+\@xx{}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} messages ,\, candidateVars ,\,
+ leaderVars ,\, logVars ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Responses with stale terms are ignored.
+}%
+\@xx{}%
+\@x{ DropStaleResponse ( i ,\, j ,\, m ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} m . mterm \.{<} currentTerm [ i ]}%
+\@x{\@s{16.4} \.{\land} Discard ( m )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, candidateVars
+ ,\, leaderVars ,\, logVars ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Receive a message.
+}%
+\@xx{}%
+\@x{ Receive ( m ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\LET} i\@s{0.42} \.{\defeq} m . mdest}%
+\@x{\@s{36.79} j \.{\defeq} m . msource}%
+\@x{\@s{16.4} \.{\IN}}%
+\@y{\@s{0}%
+ Any \ensuremath{RPC} with a newer term causes the recipient to advance
+}%
+\@xx{}%
+\@x{\@s{36.79}}%
+\@y{\@s{0}%
+ its term first. Responses with stale terms are ignored.
+}%
+\@xx{}%
+\@x{\@s{36.79} \.{\lor} UpdateTerm ( i ,\, j ,\, m )}%
+\@x{\@s{36.79} \.{\lor} \.{\land} m . mtype \.{=} RequestVoteRequest}%
+\@x{\@s{47.91} \.{\land} HandleRequestVoteRequest ( i ,\, j ,\, m )}%
+\@x{\@s{36.79} \.{\lor} \.{\land} m . mtype \.{=} RequestWitnessVoteRequest}%
+\@x{\@s{47.91} \.{\land} HandleRequestWitnessVoteRequest ( j ,\, m )}%
+\@x{\@s{36.79} \.{\lor} \.{\land} m . mtype \.{=} RequestVoteResponse}%
+\@x{\@s{47.91} \.{\land} \.{\lor} DropStaleResponse ( i ,\, j ,\, m )}%
+\@x{\@s{59.02} \.{\lor} HandleRequestVoteResponse ( i ,\, j ,\, m )}%
+\@x{\@s{36.79} \.{\lor} \.{\land} m . mtype \.{=} AppendEntriesRequest}%
+\@x{\@s{47.91} \.{\land} HandleAppendEntriesRequest ( i ,\, j ,\, m )}%
+ \@x{\@s{36.79} \.{\lor} \.{\land} m . mtype \.{=}
+ AppendEntriesToWitnessRequest}%
+\@x{\@s{47.91} \.{\land} HandleAppendEntriesToWitnessRequest ( j ,\, m )}%
+\@x{\@s{36.79} \.{\lor} \.{\land} m . mtype \.{=} AppendEntriesResponse}%
+\@x{\@s{47.91} \.{\land} \.{\lor} DropStaleResponse ( i ,\, j ,\, m )}%
+\@x{\@s{59.02} \.{\lor} HandleAppendEntriesResponse ( i ,\, j ,\, m )}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ End of message handlers.
+}%
+\@xx{}%
+\@x{}\midbar\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Network state transitions
+}%
+\@xx{}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The network duplicates a message
+}%
+\@xx{}%
+\@x{ DuplicateMessage ( m ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} Send ( m )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, candidateVars
+ ,\, leaderVars ,\, logVars ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The network drops a message
+}%
+\@xx{}%
+\@x{ DropMessage ( m ) \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} Discard ( m )}%
+ \@x{\@s{16.4} \.{\land} {\UNCHANGED} {\langle} serverVars ,\, candidateVars
+ ,\, leaderVars ,\, logVars ,\, witnessVars {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ History variable that tracks every \ensuremath{log} ever:
+}%
+\@xx{}%
+\@x{ allLogs \.{\defeq} \{ log [ i ] \.{:} i \.{\in} Server \}}%
+\@pvspace{16.0pt}%
+\@x{}\midbar\@xx{}%
+\@pvspace{8.0pt}%
+ \@x{ NextRequestVoteRequest \.{\defeq} \E\, m \.{\in} {\DOMAIN} messages
+ \.{:} m . mtype \.{=} RequestVoteRequest \.{\land} Receive ( m )}%
+ \@x{ NextRequestVoteResponse \.{\defeq} \E\, m \.{\in} {\DOMAIN} messages
+ \.{:} m . mtype \.{=} RequestVoteResponse \.{\land} Receive ( m )}%
+ \@x{ NextRequestWitnessVoteRequest \.{\defeq} \E\, m \.{\in} {\DOMAIN}
+ messages \.{:} m . mtype \.{=} RequestWitnessVoteRequest \.{\land} Receive (
+ m )}%
+ \@x{ NextAppendEntriesRequest \.{\defeq} \E\, m \.{\in} {\DOMAIN} messages
+ \.{:} m . mtype \.{=} AppendEntriesRequest \.{\land} Receive ( m )}%
+ \@x{ NextAppendEntriesResponse \.{\defeq} \E\, m \.{\in} {\DOMAIN} messages
+ \.{:} m . mtype \.{=} AppendEntriesResponse \.{\land} Receive ( m )}%
+ \@x{ NextAppendEntriesToWitnessRequest \.{\defeq} \E\, m \.{\in} {\DOMAIN}
+ messages \.{:} m . mtype \.{=} AppendEntriesToWitnessRequest \.{\land}
+ Receive ( m )}%
+ \@x{ NextDuplicateMessage \.{\defeq} \E\, m \.{\in} {\DOMAIN} messages \.{:}
+ DuplicateMessage ( m )}%
+ \@x{ NextDropMessage \.{\defeq} \E\, m \.{\in} {\DOMAIN} messages \.{:}
+ DropMessage ( m )}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Defines how the variables may transition.
+}%
+\@xx{}%
+ \@x{ Next \.{\defeq} \.{\lor} \E\, i \.{\in} NonWitnessServer \.{:} Restart (
+ i )}%
+\@x{\@s{39.83} \.{\lor} \E\, i \.{\in} NonWitnessServer \.{:} Timeout ( i )}%
+ \@x{\@s{39.83} \.{\lor} \E\, i ,\, j \.{\in} NonWitnessServer \.{:}
+ RequestVote ( i ,\, j )}%
+ \@x{\@s{39.83} \.{\lor} \E\, i \.{\in} NonWitnessServer \.{:} BecomeLeader (
+ i )}%
+ \@x{\@s{39.83} \.{\lor} \E\, i \.{\in} NonWitnessServer ,\, v \.{\in} Value
+ \.{:} ClientRequest ( i ,\, v )}%
+ \@x{\@s{39.83} \.{\lor} \E\, i \.{\in} NonWitnessServer \.{:}
+ AdvanceCommitIndex ( i )}%
+ \@x{\@s{39.83} \.{\lor} \E\, i ,\, j \.{\in} NonWitnessServer \.{:}
+ AppendEntries ( i ,\, j )}%
+ \@x{\@s{39.83} \.{\lor} \E\, i \.{\in} NonWitnessServer \.{:} \E\, s \.{\in}
+ ReplicationSets [ i ] \.{:} AdjustReplicationSet ( i ,\, s )}%
+ \@x{\@s{39.83} \.{\lor} \E\, i \.{\in} NonWitnessServer \.{:}
+ RequestWitnessVote ( i )}%
+ \@x{\@s{39.83} \.{\lor} \E\, i \.{\in} NonWitnessServer \.{:}
+ AppendEntriesToWitness ( i )}%
+\@x{\@s{39.83} \.{\lor} NextRequestVoteRequest}%
+\@x{\@s{39.83} \.{\lor} NextRequestVoteResponse}%
+\@x{\@s{39.83} \.{\lor} NextRequestWitnessVoteRequest}%
+\@x{\@s{39.83} \.{\lor} NextAppendEntriesRequest}%
+\@x{\@s{39.83} \.{\lor} NextAppendEntriesResponse}%
+\@x{\@s{39.83} \.{\lor} NextAppendEntriesToWitnessRequest}%
+\@x{\@s{39.83} \.{\lor} NextDuplicateMessage}%
+\@x{\@s{39.83} \.{\lor} NextDropMessage}%
+\@pvspace{16.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The specification must start with the initial state and transition according
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ to \ensuremath{Next}.
+}%
+\@xx{}%
+\@x{ Spec \.{\defeq}}%
+\@x{\@s{16.4} \.{\land} Init}%
+\@x{\@s{16.4} \.{\land} {\Box} [ Next ]_{ vars}}%
+\@pvspace{16.0pt}%
+\begin{lcom}{0}%
+\begin{cpar}{0}{F}{F}{0}{0}{}%
+The main safety properties are below
+\end{cpar}%
+\end{lcom}%
+\@pvspace{8.0pt}%
+\@x{}\midbar\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Correctness invariants
+}%
+\@xx{}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The prefix of the \ensuremath{log} of server \ensuremath{i} that has been
+ committed
+}%
+\@xx{}%
+ \@x{ Committed ( i ) \.{\defeq} {\IF} i \.{=} WitnessServer \.{\THEN} log [ i
+ ] \.{\ELSE} SubSeq ( log [ i ] ,\, 1 ,\, commitIndex [ i ] )}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The prefix of the \ensuremath{log} of server \ensuremath{i} that has been
+ committed up to term \ensuremath{x
+}}%
+\@xx{}%
+\@x{ CommittedTermPrefix ( i ,\, x ) \.{\defeq}}%
+\@x{\@s{16.4}}%
+\@y{\@s{0}%
+ Only if \ensuremath{log} of \ensuremath{i} is non-empty, and if there exists
+ an entry up to the term \ensuremath{x
+}}%
+\@xx{}%
+ \@x{\@s{16.4} {\IF} Len ( log [ i ] ) \.{\neq} 0 \.{\land} \E\, y \.{\in}
+ {\DOMAIN} log [ i ] \.{:} log [ i ] [ y ] . term \.{\leq} x}%
+\@x{\@s{16.4} \.{\THEN}}%
+\@x{\@s{24.59}}%
+\@y{\@s{0}%
+ then, we use the subsequence up to the maximum committed term of the leader
+}%
+\@xx{}%
+\@x{\@s{24.59} \.{\LET} maxTermIndex \.{\defeq}}%
+\@x{\@s{44.99} {\CHOOSE} y \.{\in} {\DOMAIN} log [ i ] \.{:}}%
+\@x{\@s{53.19} \.{\land} log [ i ] [ y ] . term \.{\leq} x}%
+ \@x{\@s{53.19} \.{\land} \A\, z \.{\in} {\DOMAIN} log [ i ] \.{:} log [ i ] [
+ z ] . term \.{\leq} x\@s{4.1} \.{\implies} y \.{\geq} z}%
+ \@x{\@s{24.59} \.{\IN} SubSeq ( log [ i ] ,\, 1 ,\, Min ( \{ maxTermIndex ,\,
+ commitIndex [ i ] \} ) )}%
+\@x{\@s{16.4}}%
+\@y{\@s{0}%
+ Otherwise the prefix is the empty tuple
+}%
+\@xx{}%
+\@x{\@s{16.4} \.{\ELSE} {\langle} {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Committed \ensuremath{log} entries should never conflict between servers
+}%
+\@xx{}%
+\@x{ LogInv \.{\defeq}}%
+\@x{\@s{16.4} \A\, i ,\, j \.{\in} Server \.{:}}%
+\@x{\@s{27.70} \.{\lor} IsPrefix ( Committed ( i ) ,\, Committed ( j ) )}%
+\@x{\@s{27.70} \.{\lor} IsPrefix ( Committed ( j ) ,\, Committed ( i ) )}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Note that \ensuremath{LogInv} checks for safety violations across space
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ This is a key safety invariant and should always be checked
+}%
+\@xx{}%
+\@x{ {\THEOREM} Spec \.{\implies} {\Box} LogInv}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ There is only ever one leader per term. However, this does not preclude
+ multiple
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ servers being leader at the same time, \ensuremath{i.e}.,
+ \ensuremath{\.{\,|\,}\{s \.{\in} Server\.{:} state[s] \.{=}
+ Leader\}\.{\,|\,} \.{>} 1},
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ as long as each server is leader in a different term.
+}%
+\@xx{}%
+\@x{}%
+\@y{}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ However, this invariant is not violated if two servers *atomically* trade
+ places as
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ leader in the same term, \ensuremath{i.e}., \ensuremath{state\.{'} \.{=}}
+ [state \ensuremath{{\EXCEPT} {\bang}[s] \.{=} Follower},
+ \ensuremath{{\bang}[t] \.{=} Leader}]
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ with \ensuremath{state[s]\.{=}Leader \.{\land} state[t]\.{\neq}Leader}. For
+ that, we would need a suitable action
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ property.
+}%
+\@xx{}%
+\@x{ MoreThanOneLeaderInv \.{\defeq}}%
+\@x{\@s{16.4} \A\, i ,\, j \.{\in} Server \.{:}}%
+\@x{\@s{27.70} ( \.{\land} currentTerm [ i ] \.{=} currentTerm [ j ]}%
+\@x{\@s{31.80} \.{\land} state [ i ]\@s{0.42} \.{=} Leader}%
+\@x{\@s{31.80} \.{\land} state [ j ] \.{=} Leader )}%
+\@x{\@s{27.70} \.{\implies} i \.{=} j}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ If a candidate has a chance of being elected, there
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ are no \ensuremath{log} entries with that candidate\mbox{'}s term
+}%
+\@xx{}%
+\@x{ CandidateTermNotInLogInv \.{\defeq}}%
+\@x{\@s{16.4} \A\, i \.{\in} Server \.{:}}%
+\@x{\@s{27.72} ( \.{\land} state [ i ] \.{=} Candidate}%
+\@x{\@s{31.82} \.{\land} \{ j \.{\in} Server \.{:}}%
+\@x{\@s{56.54} \.{\land} currentTerm [ j ] \.{=} currentTerm [ i ]}%
+\@x{\@s{56.54} \.{\land} votedFor [ j ] \.{=} i}%
+\@x{\@s{42.93} \} \.{\in} Quorum}%
+\@x{\@s{27.72} )}%
+\@x{\@s{27.72} \.{\implies}}%
+\@x{\@s{27.72} \A\, j\@s{1.87} \.{\in} Server \.{:}}%
+\@x{\@s{27.72} \A\, n \.{\in} {\DOMAIN} log [ j ] \.{:}}%
+\@x{\@s{41.33} log [ j ] [ n ] . term \.{\neq} currentTerm [ i ]}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ A leader always has the greatest index for its current term (this does not
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ mean all of its \ensuremath{log} will survive if it is not committed)
+}%
+\@xx{}%
+\@x{ ElectionSafetyInv \.{\defeq}}%
+\@x{\@s{16.4} \A\, i \.{\in} Server \.{:}}%
+\@x{\@s{27.72} state [ i ] \.{=} Leader \.{\implies}}%
+\@x{\@s{27.72} \A\, j \.{\in} Server \.{:} i \.{\neq} j \.{\implies}}%
+\@x{\@s{39.04} \.{\LET} FilterAndMax ( a ,\, b ) \.{\defeq}}%
+ \@x{\@s{75.84} {\IF} a . term \.{=} currentTerm [ i ] \.{\THEN} Max ( \{ a .
+ term ,\, b \} ) \.{\ELSE} b}%
+ \@x{\@s{39.04} \.{\IN} FoldSeq ( FilterAndMax ,\, 0 ,\, log [ i ] ) \.{\geq}
+ FoldSeq ( FilterAndMax ,\, 0 ,\, log [ j ] )}%
+\@pvspace{8.0pt}%
+\@x{}\midbar\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Every (index, term) pair determines a \ensuremath{log} prefix.
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ From page 8 of the Raft paper: ``If two logs contain an entry with the same
+ index and term, then the logs are identical in all preceding entries.''
+}%
+\@xx{}%
+\@x{ LogMatchingInv \.{\defeq}}%
+\@x{\@s{16.4} \A\, i ,\, j \.{\in} Server \.{:} i \.{\neq} j \.{\implies}}%
+ \@x{\@s{27.70} \A\, n \.{\in} 1 \.{\dotdot} Min ( \{ Len ( log [ i ] ) ,\,
+ Len ( log [ j ] ) \} ) \.{:}}%
+ \@x{\@s{39.03} log [ i ] [ n ] . term \.{=} log [ j ] [ n ] . term
+ \.{\implies}}%
+ \@x{\@s{39.03} SubSeq ( log [ i ] ,\, 1 ,\, n ) \.{=} SubSeq ( log [ j ] ,\,
+ 1 ,\, n )}%
+\@x{}\midbar\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ A leader has all committed entries in its \ensuremath{log}. This is expressed
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ by \ensuremath{LeaderCompleteness} below. The inductive invariant for
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ that property is the conjunction of \ensuremath{LeaderCompleteness} with the
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ other three properties below.
+}%
+\@xx{}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ All committed entries are contained in the \ensuremath{log
+}}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ of at least one server in every quorum if the last committed entry
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ is not shortcut replicated.
+}%
+\@xx{}%
+\@x{ QuorumLogInv \.{\defeq}}%
+\@x{\@s{16.4} \A\, i \.{\in} Server \.{:}}%
+\@x{\@s{27.72} \.{\LET} committed \.{\defeq} Committed ( i )}%
+\@x{\@s{27.72} \.{\IN} ( \.{\lor} LastSubterm ( committed ) \.{=} 0}%
+ \@x{\@s{52.22} \.{\lor} {\langle} LastTerm ( committed ) ,\, Len ( committed
+ ) {\rangle} \.{\in} witnessAcks ) \.{\implies}}%
+\@x{\@s{63.33} \A\, S \.{\in} Quorum \.{:}}%
+\@x{\@s{74.65} \E\, j \.{\in} S \.{:}}%
+\@x{\@s{85.97} IsPrefix ( Committed ( i ) ,\, log [ j ] )}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ The committed entries in every \ensuremath{log} are a prefix of the
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ leader\mbox{'}s \ensuremath{log} up to the leader\mbox{'}s term (since a
+ next \ensuremath{Leader} may already be
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ elected without the old leader stepping down yet)
+}%
+\@xx{}%
+\@x{ LeaderCompletenessInv \.{\defeq}}%
+\@x{\@s{16.4} \A\, i \.{\in} Server \.{:}}%
+\@x{\@s{27.72} state [ i ] \.{=} Leader \.{\implies}}%
+\@x{\@s{27.72} \A\, j \.{\in} Server \.{:} i \.{\neq} j \.{\implies}}%
+ \@x{\@s{39.04} IsPrefix ( CommittedTermPrefix ( j ,\, currentTerm [ i ] ) ,\,
+ log [ i ] )}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Each server\mbox{'}s term should be equal to or greater than the terms of
+ messages it has sent
+}%
+\@xx{}%
+\@x{ MonoTermInv \.{\defeq}}%
+ \@x{\@s{16.4} \A\, m \.{\in} {\DOMAIN} messages \.{:} currentTerm [ m .
+ msource ] \.{\geq} m . mterm}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Terms in logs increase monotonically.
+}%
+\@xx{}%
+\@x{ MonoLogInv \.{\defeq}}%
+\@x{\@s{16.4} \A\, i \.{\in} Server \.{:}}%
+\@x{\@s{23.62} log [ i ] \.{\neq} {\langle} {\rangle} \.{\implies}}%
+\@x{\@s{39.04} \.{\land} LastTerm ( log [ i ] ) \.{\leq} currentTerm [ i ]}%
+ \@x{\@s{39.04} \.{\land} \A\, k \.{\in} 1 \.{\dotdot} Len ( log [ i ] ) \.{-}
+ 1 \.{:} log [ i ] [ k ] . term \.{\leq} log [ i ] [ k \.{+} 1 ] . term}%
+\@pvspace{16.0pt}%
+\@x{}\midbar\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ Properties
+}%
+\@xx{}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Each server\mbox{'}s committed \ensuremath{log} is append-only
+}%
+\@xx{}%
+\@x{ CommittedLogAppendOnlyProp \.{\defeq}}%
+\@x{\@s{16.4} {\Box} [ \A\, i \.{\in} Server \.{:}}%
+ \@x{\@s{30.75} IsPrefix ( Committed ( i ) ,\, Committed ( i ) \.{'} ) ]_{
+ vars}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Note that \ensuremath{CommittedLogAppendOnlyProp} checks for safety
+ violations across time
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ This is a key safety invariant and should always be checked
+}%
+\@xx{}%
+\@x{ {\THEOREM} Spec \.{\implies} CommittedLogAppendOnlyProp}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Each server\mbox{'}s commit index is monotonically increasing
+}%
+\@xx{}%
+\@x{}%
+\@y{\@s{0}%
+ This is weaker form of \ensuremath{CommittedLogAppendOnlyProp} so it is not
+ checked by default
+}%
+\@xx{}%
+\@x{ MonotonicCommitIndexProp \.{\defeq}}%
+\@x{\@s{16.4} {\Box} [ \A\, i \.{\in} Server \.{:}}%
+\@x{\@s{30.75} commitIndex \.{'} [ i ] \.{\geq} commitIndex [ i ] ]_{ vars}}%
+\@pvspace{8.0pt}%
+\@x{ MonotonicTermProp \.{\defeq}}%
+\@x{\@s{16.4} {\Box} [ \A\, i \.{\in} Server \.{:}}%
+\@x{\@s{30.75} currentTerm \.{'} [ i ] \.{\geq} currentTerm [ i ] ]_{ vars}}%
+\@pvspace{8.0pt}%
+\@x{ MonotonicMatchIndexProp \.{\defeq}}%
+\@x{\@s{16.4}}%
+\@y{\@s{0}%
+ Figure 2, page 4 in the raft paper:
+}%
+\@xx{}%
+\@x{\@s{20.5}}%
+\@y{\@s{0}%
+ ``Volatile state on leaders, reinitialized after election. For each server,
+}%
+\@xx{}%
+\@x{\@s{20.5}}%
+\@y{\@s{2.5}%
+ index of the highest \ensuremath{log} entry known to be replicated on
+ server. Initialized
+}%
+\@xx{}%
+\@x{\@s{20.5}}%
+\@y{\@s{2.5}%
+ to 0, increases monotonically''. In other words, \ensuremath{matchIndex}
+ never decrements
+}%
+\@xx{}%
+\@x{\@s{20.5}}%
+\@y{\@s{0}%
+ unless the current action is a node becoming leader or restarted.
+}%
+\@xx{}%
+ \@x{\@s{16.4} {\Box} [ ( {\lnot} \E\, i \.{\in} NonWitnessServer \.{:}
+ {\langle} BecomeLeader ( i ) \.{\lor} Restart ( i ) {\rangle}_{ vars} )
+ \.{\implies}}%
+\@x{\@s{45.40} ( \A\, i \.{\in} NonWitnessServer ,\, j \.{\in} Server \.{:}}%
+ \@x{\@s{56.51} matchIndex \.{'} [ i ] [ j ] \.{\geq} matchIndex [ i ] [ j ] )
+ ]_{ vars}}%
+\@pvspace{8.0pt}%
+\@x{ StateTransitionsProp \.{\defeq}}%
+\@x{\@s{16.4} {\Box} [ \A\, i \.{\in} Server \.{:}}%
+ \@x{\@s{30.75} \.{\land} state [ i ] \.{=} Nil \.{\implies} state \.{'} [ i ]
+ \.{\in} \{ Nil ,\, Follower \}}%
+ \@x{\@s{30.75} \.{\land} state [ i ] \.{=} Follower \.{\implies} state \.{'}
+ [ i ] \.{\in} \{ Follower ,\, Candidate \}}%
+ \@x{\@s{30.75} \.{\land} state [ i ] \.{=} Candidate \.{\implies} state \.{'}
+ [ i ] \.{\in} \{ Follower ,\, Candidate ,\, Leader \}}%
+ \@x{\@s{30.75} \.{\land} state [ i ] \.{=} Leader \.{\implies} state \.{'} [
+ i ] \.{\in} \{ Follower ,\, Leader \}}%
+\@x{\@s{30.75} ]_{ vars}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{\@s{0}%
+ Leader commits \ensuremath{log} entries in during its term and current
+ \ensuremath{subterm}.
+}%
+\@xx{}%
+\@x{ NeverCommitEntryPrevSubtermsProp \.{\defeq}}%
+ \@x{\@s{16.4} {\Box} [ \A\, i \.{\in} \{ s \.{\in} Server \.{:} state [ s ]
+ \.{=} Leader \} \.{:}}%
+\@x{\@s{30.75}}%
+\@y{\@s{0}%
+ If the \ensuremath{commitIndex} of a leader changes, the \ensuremath{log}
+ entry\mbox{'}s term and \ensuremath{subterm} that
+}%
+\@xx{}%
+\@x{\@s{30.75}}%
+\@y{\@s{0}%
+ the new \ensuremath{commitIndex} points to equals the leader\mbox{'}s term
+ and \ensuremath{subterm}, respectively.
+}%
+\@xx{}%
+\@x{\@s{30.75} commitIndex \.{'} [ i ] \.{>} commitIndex [ i ] \.{\implies}}%
+ \@x{\@s{47.15} \.{\land} log [ i ] [ commitIndex \.{'} [ i ] ] . term \.{=}
+ currentTerm \.{'} [ i ]}%
+ \@x{\@s{47.15} \.{\land} log [ i ] [ commitIndex \.{'} [ i ] ] . subterm
+ \.{=} currentSubterm \.{'} [ i ] ]_{ vars}}%
+\@pvspace{8.0pt}%
+\@x{ LogMatchingProp \.{\defeq}}%
+ \@x{\@s{16.4} \A\, i ,\, j \.{\in} Server \.{:} {\Box} {\Diamond} ( log [ i ]
+ \.{=} log [ j ] )}%
+\@pvspace{8.0pt}%
+\@x{ LeaderProp \.{\defeq}}%
+ \@x{\@s{16.4} {\Box} {\Diamond} {\langle} \E\, i \.{\in} Server \.{:} state [
+ i ] \.{=} Leader {\rangle}_{ vars}}%
+\@pvspace{8.0pt}%
+\@x{}\bottombar\@xx{}%

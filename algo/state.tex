@@ -27,6 +27,10 @@ VARIABLE witnessSubterm
 leaderVars == <<nextIndex, matchIndex, elections, 
                 replicationSet, currentSubterm, witnessSubterm>>
 
+\* The set of log entries that are acknowledged by witness, e.g. not shortcut replication. 
+\* This is used to assist invariant and does not exist in real implementation.
+VARIABLE witnessAcks
+
 \* The following variables are persisted only on witness:
 \* The latest replication set sent from leader
 VARIABLE witnessReplicationSet
@@ -81,8 +85,20 @@ witnessVars == <<witnessReplicationSet,
 \@x{ {\VARIABLE} witnessSubterm}%
  \@x{ leaderVars \.{\defeq} {\langle} nextIndex ,\, matchIndex ,\, elections
  ,\,}%
- \@x{\@s{69.36} replicationSet ,\, currentSubterm ,\, witnessSubterm
- {\rangle}}%
+\@x{ replicationSet ,\, currentSubterm ,\, witnessSubterm {\rangle}}%
+\@pvspace{8.0pt}%
+\@x{}%
+\@y{%
+ The set of log entries that are acknowledged by witness, e.g. not shortcut
+ replication. 
+}%
+\@xx{}%
+\@x{}%
+\@y{%
+  This is used to assist invariant and does not exist in real implementation.
+}%
+\@xx{}%
+\@x{ {\VARIABLE} witnessAcks}%
 \@pvspace{8.0pt}%
 \@x{}%
 \@y{%
@@ -108,7 +124,7 @@ witnessVars == <<witnessReplicationSet,
 \@xx{}%
 \@x{ {\VARIABLE} witnessLastLogSubterm}%
 \@x{ witnessVars \.{\defeq} {\langle} witnessReplicationSet ,\,}%
-\@x{\@s{75.11} witnessLastLogTerm ,\, witnessLastLogSubterm {\rangle}}%
+\@x{ witnessLastLogTerm ,\, witnessLastLogSubterm {\rangle}}%
 \@pvspace{8.0pt}%
 \end{tlatex}
 \end{document}
